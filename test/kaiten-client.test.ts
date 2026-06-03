@@ -98,6 +98,16 @@ describe('card operations', () => {
     expect(children).toEqual([{ id: 1 }]);
     expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5/children', { signal: undefined });
   });
+
+  it('addCardChild POSTs { card_id } to /cards/:id/children', async () => {
+    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 5, title: 'Parent' } });
+    const result = await client.addCardChild(5, 42);
+    expect(result).toEqual({ id: 5, title: 'Parent' });
+    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
+    expect(url).toBe('/cards/5/children');
+    expect(data).toEqual({ card_id: 42 });
+    expect(opts).toEqual({ signal: undefined });
+  });
 });
 
 describe('comment operations', () => {
