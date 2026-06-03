@@ -98,6 +98,23 @@ describe('card operations', () => {
     expect(children).toEqual([{ id: 1 }]);
     expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5/children', { signal: undefined });
   });
+
+  it('addCardChild POSTs { card_id } to /cards/:id/children', async () => {
+    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 99, title: 'Parent' } });
+    const result = await client.addCardChild(5, 42);
+    expect(result).toEqual({ id: 99, title: 'Parent' });
+    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
+    expect(url).toBe('/cards/5/children');
+    expect(data).toEqual({ card_id: 42 });
+    expect(opts).toEqual({ signal: undefined });
+  });
+
+  it('removeCardChild DELETEs /cards/:id/children/:childId', async () => {
+    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 99 } });
+    const result = await client.removeCardChild(5, 42);
+    expect(result).toEqual({ id: 99 });
+    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5/children/42', { signal: undefined });
+  });
 });
 
 describe('comment operations', () => {

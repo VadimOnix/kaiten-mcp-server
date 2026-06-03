@@ -117,7 +117,7 @@ npm run build
 Покажи список пространств Kaiten
 ```
 
-## Доступные инструменты (16 tools)
+## Доступные инструменты (19 tools)
 
 ### Карточки
 - `kaiten_get_card` - Получить карточку по ID **[format: json/markdown]**
@@ -131,6 +131,12 @@ npm run build
 - `kaiten_create_comment` - Создать комментарий
 - `kaiten_update_comment` - Обновить комментарий
 - `kaiten_delete_comment` - Удалить комментарий
+
+### Подзадачи (Card Children)
+
+- `kaiten_get_card_children` - Получить дочерние карточки (подзадачи) **[verbosity: minimal/normal/detailed]**
+- `kaiten_add_card_children` - Привязать подзадачи (массив ID, continue-on-error)
+- `kaiten_remove_card_children` - Отвязать подзадачи (массив ID, continue-on-error)
 
 ### Пространства и доски
 - `kaiten_list_spaces` - Список всех пространств

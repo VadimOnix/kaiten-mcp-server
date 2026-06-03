@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.1.0] - 2026-06-03
+
+### Added
+- **Card Children tools (3)** — manage parent–child card relationships (subtasks):
+  - `kaiten_get_card_children` — list child cards of a parent card, with verbosity control (minimal/normal/detailed).
+  - `kaiten_add_card_children` — attach an array of child cards (one API call per ID, continue-on-error with a succeeded/failed summary; full-batch failure is flagged via `isError`).
+  - `kaiten_remove_card_children` — detach an array of child cards (one API call per ID, continue-on-error with a succeeded/failed summary).
+
+Tool count: 16 → 19. Implements Phase 1 / item 1 (Card Children) of `ROADMAP_FEATURES.md`.
+
 ## [3.0.0] - 2026-06-03
 
 ### 🧹 Toolset Slimming & Test Coverage Release

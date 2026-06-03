@@ -1,6 +1,6 @@
 {
   "name": "mcp-kaiten",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "MCP server for Kaiten API integration with Claude - Production-ready with Token Economy (90% savings), Verbosity control, Response formats, Logging & Monitoring",
   "main": "dist/index.js",
   "bin": {
