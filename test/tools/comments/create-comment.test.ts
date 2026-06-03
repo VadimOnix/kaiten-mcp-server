@@ -25,14 +25,14 @@ describe('kaiten_create_comment tool module', () => {
     expect(createCommentFn).toHaveBeenCalledWith(5, 'hello', undefined, undefined);
   });
 
-  it('does NOT forward idempotency_key to client (original behaviour)', async () => {
+  it('forwards idempotency_key to the client when provided', async () => {
     const createCommentFn = vi.fn().mockResolvedValue({ id: 1 });
     await createComment.run(
       { card_id: 5, text: 'msg', idempotency_key: 'my-key' },
       fakeCtx({ client: { createComment: createCommentFn } }),
     );
-    // idempotency_key from args is intentionally ignored — undefined is always passed
-    expect(createCommentFn).toHaveBeenCalledWith(5, 'msg', undefined, undefined);
+    // the user-supplied idempotency_key must reach the client (Idempotency-Key header)
+    expect(createCommentFn).toHaveBeenCalledWith(5, 'msg', 'my-key', undefined);
   });
 
   it('maps a thrown error to an error result', async () => {
