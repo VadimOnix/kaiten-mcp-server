@@ -158,6 +158,7 @@ Optional performance tuning:
 KAITEN_MAX_CONCURRENT_REQUESTS=5    # 1-20, default: 5
 KAITEN_CACHE_TTL_SECONDS=300        # 0 to disable, default: 300
 KAITEN_REQUEST_TIMEOUT_MS=10000     # 1-60000, default: 10000
+KAITEN_INSECURE_SSL=true           # Disable SSL verification (unable to get local issuer certificate)
 ```
 
 Logging configuration (v2.3.0):
@@ -231,6 +232,8 @@ MCP Inspector provides:
 
 ## Deployment to Claude Desktop
 
+### Option A: Local (node)
+
 1. Build: `npm run build`
 2. Configure Claude Desktop's `claude_desktop_config.json`:
    ```json
@@ -245,6 +248,22 @@ MCP Inspector provides:
    }
    ```
 3. Restart Claude Desktop completely (⌘+Q / Alt+F4)
+
+### Option B: Docker (no local build)
+
+1. Build: `docker build -t mcp-kaiten .` (or `npm run docker:build`)
+2. Configure `claude_desktop_config.json`:
+   ```json
+   {
+     "mcpServers": {
+       "kaiten": {
+         "command": "docker",
+         "args": ["run", "--rm", "-i", "-e", "KAITEN_API_URL=...", "-e", "KAITEN_API_TOKEN=...", "-e", "KAITEN_DEFAULT_SPACE_ID=...", "mcp-kaiten"]
+       }
+     }
+   }
+   ```
+3. Restart Claude Desktop
 
 ## Key Files Reference
 

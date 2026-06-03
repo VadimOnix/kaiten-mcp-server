@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import { default as PQueue } from 'p-queue';
 import { randomBytes } from 'crypto';
+import https from 'https';
 import { config, safeLog } from './config.js';
 import { logger } from './logging/index.js';
 import { setupLoggingMiddleware } from './middleware/logging-middleware.js';
@@ -194,7 +195,7 @@ export class KaitenClient {
 
   constructor(apiUrl: string, apiToken: string) {
     // Create axios instance with timeout
-    this.client = axios.create({
+    const axiosConfig = {
       baseURL: apiUrl,
       headers: {
         'Authorization': `Bearer ${apiToken}`,
@@ -202,7 +203,16 @@ export class KaitenClient {
         'User-Agent': 'mcp-kaiten/2.2.0 (+https://github.com/yourusername/mcp-kaiten)',
       },
       timeout: config.KAITEN_REQUEST_TIMEOUT_MS,
-    });
+      ...(config.KAITEN_INSECURE_SSL && {
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      }),
+    };
+
+    if (config.KAITEN_INSECURE_SSL) {
+      safeLog.warn('⚠️ SSL certificate verification is DISABLED (KAITEN_INSECURE_SSL=true). Use only for dev/corporate networks.');
+    }
+
+    this.client = axios.create(axiosConfig);
 
     // Configure axios-retry with exponential backoff
     axiosRetry(this.client, {
@@ -291,12 +301,15 @@ export class KaitenClient {
 
     // Network error (no response from server)
     if (!error.response) {
+      const isSslError = /certificate|issuer|UNABLE_TO_GET_ISSUER_CERT|SSL/i.test(error.message || '');
       return new KaitenError(
         KaitenErrorType.NETWORK_ERROR,
         error.message || 'Network error occurred',
         undefined,
         { code: error.code },
-        'Check your internet connection and API URL configuration'
+        isSslError
+          ? 'SSL certificate error. Try KAITEN_INSECURE_SSL=true for self-signed/corporate proxy, or update ca-certificates in Docker'
+          : 'Check your internet connection and API URL configuration'
       );
     }
 

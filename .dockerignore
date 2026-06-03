@@ -1,0 +1,39 @@
+# Dependencies (node_modules rebuilt in container)
+node_modules/
+npm-debug.log*
+
+# Build output (rebuilt in container)
+dist/
+
+# Environment and secrets (MUST be passed via -e at runtime)
+.env
+.env.*
+!.env.example
+
+# Development and IDE
+.git/
+.github/
+.vscode/
+.idea/
+*.md
+!README.md
+
+# Logs and temp files
+logs/
+*.log
+.DS_Store
+
+# Evaluations and tests
+evaluations/
+test-*.js
+test-*.ts
+*.test.ts
+*.spec.ts
+
+# Documentation (not needed in image)
+CLAUDE.md
+CHANGELOG.md
+ROADMAP_FEATURES.md
+DEFAULT_SPACE_GUIDE.md
+LOGGING_IMPLEMENTATION_PLAN.md
+TOOLS.md

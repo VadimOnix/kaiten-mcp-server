@@ -1,0 +1,38 @@
+# Docker MCP Catalog entry for Kaiten server
+# Import: docker mcp catalog import docker-mcp-catalog.yaml
+# Then enable in Docker Desktop MCP settings
+registry:
+  mcp-kaiten:
+    title: Kaiten
+    description: MCP server for Kaiten API - cards, comments, spaces, boards
+    type: server
+    image: mcp-kaiten:latest
+    command:
+      - node
+      - dist/index.js
+    secrets:
+      - name: mcp-kaiten.api-token
+        env: KAITEN_API_TOKEN
+        example: your_kaiten_api_token
+        description: Kaiten API token from profile settings
+    env:
+      - name: KAITEN_API_URL
+        value: "{{mcp-kaiten.api-url}}"
+      - name: KAITEN_DEFAULT_SPACE_ID
+        value: "{{mcp-kaiten.space-id}}"
+      - name: KAITEN_INSECURE_SSL
+        value: "{{mcp-kaiten.insecure-ssl}}"
+    config:
+      - name: mcp-kaiten
+        description: Kaiten connection settings
+        type: object
+        properties:
+          api-url:
+            type: string
+            description: Kaiten API URL (e.g. https://your-domain.kaiten.ru/api/latest)
+          space-id:
+            type: string
+            description: Default space ID (optional)
+          insecure-ssl:
+            type: string
+            description: Set to "true" if you get "unable to get local issuer certificate" (corporate proxy, self-signed cert)
