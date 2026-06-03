@@ -108,6 +108,13 @@ describe('card operations', () => {
     expect(data).toEqual({ card_id: 42 });
     expect(opts).toEqual({ signal: undefined });
   });
+
+  it('removeCardChild DELETEs /cards/:id/children/:childId', async () => {
+    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 99 } });
+    const result = await client.removeCardChild(5, 42);
+    expect(result).toEqual({ id: 99 });
+    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5/children/42', { signal: undefined });
+  });
 });
 
 describe('comment operations', () => {
