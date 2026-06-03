@@ -262,4 +262,17 @@ describe('RemoveCardChildrenSchema', () => {
   it('rejects an empty child_card_ids array', () => {
     expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [] })).toThrow();
   });
+
+  it('rejects non-positive or non-integer child ids', () => {
+    expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [0] })).toThrow();
+    expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [1.5] })).toThrow();
+  });
+
+  it('requires child_card_ids', () => {
+    expect(() => RemoveCardChildrenSchema.parse({ card_id: 1 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2], bogus: true })).toThrow();
+  });
 });
