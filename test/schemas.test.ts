@@ -14,6 +14,9 @@ import {
   ListLanesSchema,
   ListTypesSchema,
   ListUsersSchema,
+  GetCardChildrenSchema,
+  AddCardChildrenSchema,
+  RemoveCardChildrenSchema,
 } from '../src/schemas';
 
 // Input-validation contract for the 16 remaining MCP tools.
@@ -203,5 +206,60 @@ describe('ListUsersSchema', () => {
 
   it('rejects unknown verbosity', () => {
     expect(() => ListUsersSchema.parse({ verbosity: 'loud' })).toThrow();
+  });
+});
+
+describe('GetCardChildrenSchema', () => {
+  it('accepts card_id and defaults verbosity to normal', () => {
+    const parsed = GetCardChildrenSchema.parse({ card_id: 12345 });
+    expect(parsed.card_id).toBe(12345);
+    expect(parsed.verbosity).toBe('normal');
+  });
+
+  it('accepts an explicit verbosity', () => {
+    expect(GetCardChildrenSchema.parse({ card_id: 1, verbosity: 'minimal' }).verbosity).toBe('minimal');
+  });
+
+  it('rejects a non-positive card_id', () => {
+    expect(() => GetCardChildrenSchema.parse({ card_id: 0 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => GetCardChildrenSchema.parse({ card_id: 1, bogus: true })).toThrow();
+  });
+});
+
+describe('AddCardChildrenSchema', () => {
+  it('accepts card_id and a non-empty child_card_ids array', () => {
+    const parsed = AddCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2, 3] });
+    expect(parsed.child_card_ids).toEqual([2, 3]);
+  });
+
+  it('rejects an empty child_card_ids array', () => {
+    expect(() => AddCardChildrenSchema.parse({ card_id: 1, child_card_ids: [] })).toThrow();
+  });
+
+  it('rejects non-positive or non-integer child ids', () => {
+    expect(() => AddCardChildrenSchema.parse({ card_id: 1, child_card_ids: [0] })).toThrow();
+    expect(() => AddCardChildrenSchema.parse({ card_id: 1, child_card_ids: [1.5] })).toThrow();
+  });
+
+  it('requires child_card_ids', () => {
+    expect(() => AddCardChildrenSchema.parse({ card_id: 1 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => AddCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('RemoveCardChildrenSchema', () => {
+  it('accepts card_id and a non-empty child_card_ids array', () => {
+    const parsed = RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2] });
+    expect(parsed.child_card_ids).toEqual([2]);
+  });
+
+  it('rejects an empty child_card_ids array', () => {
+    expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [] })).toThrow();
   });
 });

@@ -69,6 +69,23 @@ export const DeleteCardSchema = z.object({
   card_id: z.number().positive().int().describe('The ID of the card to delete'),
 }).strict();
 
+export const GetCardChildrenSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the parent card'),
+  verbosity: VerbosityEnum,
+}).strict();
+
+export const AddCardChildrenSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the parent card'),
+  child_card_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of child cards to attach as subtasks (one API call per ID)'),
+}).strict();
+
+export const RemoveCardChildrenSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the parent card'),
+  child_card_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of child cards to detach (one API call per ID)'),
+}).strict();
+
 export const SearchCardsSchema = z.object({
   // Text search
   query: z.string().optional().describe('Search query for partial case-insensitive matching'),
