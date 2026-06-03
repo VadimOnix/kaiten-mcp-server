@@ -237,7 +237,7 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 Покажи список пространств Kaiten
 ```
 
-## Доступные инструменты (19 tools)
+## Доступные инструменты (22 tools)
 
 ### Карточки
 
@@ -259,6 +259,12 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 - `kaiten_get_card_children` - Получить дочерние карточки (подзадачи) **[verbosity: minimal/normal/detailed]**
 - `kaiten_add_card_children` - Привязать подзадачи (массив ID, continue-on-error)
 - `kaiten_remove_card_children` - Отвязать подзадачи (массив ID, continue-on-error)
+
+### Родительские карточки (Card Parents)
+
+- `kaiten_get_card_parents` - Получить родительские карточки **[verbosity: minimal/normal/detailed]**
+- `kaiten_add_card_parents` - Привязать родителей (массив ID, continue-on-error)
+- `kaiten_remove_card_parents` - Отвязать родителей (массив ID, continue-on-error)
 
 ### Пространства и доски
 
