@@ -17,6 +17,9 @@ import {
   GetCardChildrenSchema,
   AddCardChildrenSchema,
   RemoveCardChildrenSchema,
+  GetCardParentsSchema,
+  AddCardParentsSchema,
+  RemoveCardParentsSchema,
 } from '../src/schemas';
 
 // Input-validation contract for the 19 MCP tools.
@@ -274,5 +277,69 @@ describe('RemoveCardChildrenSchema', () => {
 
   it('rejects unknown extra keys (strict)', () => {
     expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('GetCardParentsSchema', () => {
+  it('accepts card_id and defaults verbosity to normal', () => {
+    const parsed = GetCardParentsSchema.parse({ card_id: 12345 });
+    expect(parsed.card_id).toBe(12345);
+    expect(parsed.verbosity).toBe('normal');
+  });
+
+  it('rejects a non-positive card_id', () => {
+    expect(() => GetCardParentsSchema.parse({ card_id: 0 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => GetCardParentsSchema.parse({ card_id: 1, bogus: true })).toThrow();
+  });
+});
+
+describe('AddCardParentsSchema', () => {
+  it('accepts card_id and a non-empty parent_card_ids array', () => {
+    const parsed = AddCardParentsSchema.parse({ card_id: 1, parent_card_ids: [2, 3] });
+    expect(parsed.parent_card_ids).toEqual([2, 3]);
+  });
+
+  it('rejects an empty parent_card_ids array', () => {
+    expect(() => AddCardParentsSchema.parse({ card_id: 1, parent_card_ids: [] })).toThrow();
+  });
+
+  it('rejects non-positive or non-integer parent ids', () => {
+    expect(() => AddCardParentsSchema.parse({ card_id: 1, parent_card_ids: [0] })).toThrow();
+    expect(() => AddCardParentsSchema.parse({ card_id: 1, parent_card_ids: [1.5] })).toThrow();
+  });
+
+  it('requires parent_card_ids', () => {
+    expect(() => AddCardParentsSchema.parse({ card_id: 1 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => AddCardParentsSchema.parse({ card_id: 1, parent_card_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('RemoveCardParentsSchema', () => {
+  it('accepts card_id and a non-empty parent_card_ids array', () => {
+    const parsed = RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [2] });
+    expect(parsed.parent_card_ids).toEqual([2]);
+  });
+
+  it('rejects an empty parent_card_ids array', () => {
+    expect(() => RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [] })).toThrow();
+  });
+
+  it('rejects non-positive or non-integer parent ids', () => {
+    expect(() => RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [0] })).toThrow();
+    expect(() => RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [1.5] })).toThrow();
+  });
+
+  it('requires parent_card_ids', () => {
+    expect(() => RemoveCardParentsSchema.parse({ card_id: 1 })).toThrow();
+  });
+
+  it('rejects unknown extra keys (strict)', () => {
+    expect(() => RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [2], bogus: true })).toThrow();
   });
 });

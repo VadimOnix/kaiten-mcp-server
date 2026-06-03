@@ -86,6 +86,23 @@ export const RemoveCardChildrenSchema = z.object({
     .describe('IDs of child cards to detach (one API call per ID)'),
 }).strict();
 
+export const GetCardParentsSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the child card'),
+  verbosity: VerbosityEnum,
+}).strict();
+
+export const AddCardParentsSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the child card'),
+  parent_card_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of parent cards to attach (one API call per ID)'),
+}).strict();
+
+export const RemoveCardParentsSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the child card'),
+  parent_card_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of parent cards to detach (one API call per ID)'),
+}).strict();
+
 export const SearchCardsSchema = z.object({
   // Text search
   query: z.string().optional().describe('Search query for partial case-insensitive matching'),
@@ -215,6 +232,9 @@ export type DeleteCardArgs = z.infer<typeof DeleteCardSchema>;
 export type GetCardChildrenArgs = z.infer<typeof GetCardChildrenSchema>;
 export type AddCardChildrenArgs = z.infer<typeof AddCardChildrenSchema>;
 export type RemoveCardChildrenArgs = z.infer<typeof RemoveCardChildrenSchema>;
+export type GetCardParentsArgs = z.infer<typeof GetCardParentsSchema>;
+export type AddCardParentsArgs = z.infer<typeof AddCardParentsSchema>;
+export type RemoveCardParentsArgs = z.infer<typeof RemoveCardParentsSchema>;
 export type SearchCardsArgs = z.infer<typeof SearchCardsSchema>;
 export type GetCardCommentsArgs = z.infer<typeof GetCardCommentsSchema>;
 export type CreateCommentArgs = z.infer<typeof CreateCommentSchema>;
