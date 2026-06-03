@@ -19,7 +19,7 @@ import {
   RemoveCardChildrenSchema,
 } from '../src/schemas';
 
-// Input-validation contract for the 16 remaining MCP tools.
+// Input-validation contract for the 19 MCP tools.
 // These guard the boundary between the LLM and the Kaiten API client.
 
 describe('GetCardSchema', () => {

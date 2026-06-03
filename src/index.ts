@@ -842,6 +842,7 @@ RELATED TOOLS:
         child_card_ids: {
           type: 'array',
           items: { type: 'number' },
+          minItems: 1,
           description: 'IDs of child cards to attach',
         },
       },
@@ -876,6 +877,7 @@ RELATED TOOLS:
         child_card_ids: {
           type: 'array',
           items: { type: 'number' },
+          minItems: 1,
           description: 'IDs of child cards to detach',
         },
       },

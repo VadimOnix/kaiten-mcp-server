@@ -100,7 +100,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 
 5. **src/schemas.ts** (Zod validation schemas)
    - 15+ Zod schemas for all tool parameters
-   - VerbosityEnum: minimal | normal | debug
+   - VerbosityEnum: minimal | normal | detailed
    - Idempotency key validation
    - Structured error responses
 
@@ -126,8 +126,8 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 - All read tools support `verbosity` parameter:
   - `minimal` - Only id + name/title (for lists)
   - `normal` - Simplified/essential fields (default)
-  - `debug` - Full API response with all metadata
-- Applied via `applyVerbosity()` helper in src/index.ts
+  - `detailed` - Full API response with all metadata
+- Applied via `applyCardVerbosity()` helper in src/utils.ts
 
 **Idempotency Pattern:**
 - Mutations (create_card, update_card, create_comment, update_comment) support `idempotency_key` parameter
