@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.2.0] - 2026-06-03
+
+### Added
+- **Card Parents tools (3)** — manage the parent side of card hierarchy:
+  - `kaiten_get_card_parents` — list a card's parent cards, with verbosity control.
+  - `kaiten_add_card_parents` — attach an array of parent cards (one API call per ID, continue-on-error with summary; full-batch failure flagged via `isError`).
+  - `kaiten_remove_card_parents` — detach an array of parent cards (one API call per ID, continue-on-error with summary).
+
+Tool count: 19 → 22. The `GET /cards/{id}/parents` contract was verified against the live Kaiten API; POST/DELETE mirror the already-shipped Card Children endpoints.
+
 ## [3.1.0] - 2026-06-03
 
 ### Added

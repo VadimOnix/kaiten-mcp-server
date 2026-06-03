@@ -619,6 +619,34 @@ export class KaitenClient {
     }, signal);
   }
 
+  async getCardParents(cardId: number, signal?: AbortSignal): Promise<KaitenCard[]> {
+    return this.queuedRequest(async () => {
+      const response = await this.client.get(`/cards/${cardId}/parents`, { signal });
+      return response.data;
+    }, signal);
+  }
+
+  async addCardParent(cardId: number, parentCardId: number, signal?: AbortSignal): Promise<KaitenCard> {
+    return this.queuedRequest(async () => {
+      const response = await this.client.post(
+        `/cards/${cardId}/parents`,
+        { card_id: parentCardId },
+        { signal }
+      );
+      return response.data;
+    }, signal);
+  }
+
+  async removeCardParent(cardId: number, parentCardId: number, signal?: AbortSignal): Promise<{ id: number }> {
+    return this.queuedRequest(async () => {
+      const response = await this.client.delete(
+        `/cards/${cardId}/parents/${parentCardId}`,
+        { signal }
+      );
+      return response.data;
+    }, signal);
+  }
+
   // Space operations
   async getSpaces(signal?: AbortSignal): Promise<KaitenSpace[]> {
     return this.queuedRequest(async () => {
