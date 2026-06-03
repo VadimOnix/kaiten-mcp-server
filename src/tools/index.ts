@@ -9,6 +9,12 @@ import { getCardComments } from './comments/get-card-comments.js';
 import { createComment } from './comments/create-comment.js';
 import { updateComment } from './comments/update-comment.js';
 import { deleteComment } from './comments/delete-comment.js';
+import { getCardChildren } from './relations/get-card-children.js';
+import { addCardChildren } from './relations/add-card-children.js';
+import { removeCardChildren } from './relations/remove-card-children.js';
+import { getCardParents } from './relations/get-card-parents.js';
+import { addCardParents } from './relations/add-card-parents.js';
+import { removeCardParents } from './relations/remove-card-parents.js';
 
 export const ALL_TOOLS: ToolDefinition[] = [
   getCard,
@@ -20,5 +26,11 @@ export const ALL_TOOLS: ToolDefinition[] = [
   createComment,
   updateComment,
   deleteComment,
+  getCardChildren,
+  addCardChildren,
+  removeCardChildren,
+  getCardParents,
+  addCardParents,
+  removeCardParents,
 ];
 export const TOOL_MAP = new Map<string, ToolDefinition>(ALL_TOOLS.map((t) => [t.name, t]));
