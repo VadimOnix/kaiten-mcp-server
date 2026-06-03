@@ -123,22 +123,6 @@ export const SearchCardsSchema = z.object({
   verbosity: VerbosityEnum,
 }).strict();
 
-export const GetSpaceCardsSchema = z.object({
-  space_id: z.number().positive().int().describe('The ID of the space'),
-  limit: z.number().positive().int().max(20).optional().describe('Maximum number of cards (default: 10, max: 20)'),
-  skip: z.number().min(0).int().optional().describe('Number of cards to skip (default: 0)'),
-  condition: z.number().min(1).max(2).optional().describe('Filter by condition: 1=active (default), 2=archived'),
-  verbosity: VerbosityEnum,
-}).strict();
-
-export const GetBoardCardsSchema = z.object({
-  board_id: z.number().positive().int().describe('The ID of the board'),
-  limit: z.number().positive().int().max(20).optional().describe('Maximum number of cards (default: 10, max: 20)'),
-  skip: z.number().min(0).int().optional().describe('Number of cards to skip (default: 0)'),
-  condition: z.number().min(1).max(2).optional().describe('Filter by condition: 1=active (default), 2=archived'),
-  verbosity: VerbosityEnum,
-}).strict();
-
 // ============================================
 // COMMENT SCHEMAS
 // ============================================
@@ -166,26 +150,12 @@ export const DeleteCommentSchema = z.object({
 }).strict();
 
 // ============================================
-// SPACE SCHEMAS
-// ============================================
-
-export const GetSpaceSchema = z.object({
-  space_id: z.number().positive().int().describe('The ID of the space'),
-  format: ResponseFormatEnum,
-}).strict();
-
-// ============================================
 // BOARD SCHEMAS
 // ============================================
 
 export const ListBoardsSchema = z.object({
   space_id: z.number().positive().int().optional().describe('Filter by space ID (optional)'),
   verbosity: VerbosityEnum,
-}).strict();
-
-export const GetBoardSchema = z.object({
-  board_id: z.number().positive().int().describe('The ID of the board'),
-  format: ResponseFormatEnum,
 }).strict();
 
 // ============================================
@@ -218,18 +188,6 @@ export const ListUsersSchema = z.object({
 // GetCurrentUser has no parameters, so no schema needed
 
 // ============================================
-// LOGGING SCHEMAS
-// ============================================
-
-export const SetLogLevelSchema = z.object({
-  level: z.enum(['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency', 'off']).describe('New log level'),
-  enable_mcp_logs: z.boolean().optional().describe('Enable/disable MCP client logs'),
-  enable_file_logs: z.boolean().optional().describe('Enable/disable file logs'),
-  enable_request_logs: z.boolean().optional().describe('Enable/disable detailed request logging'),
-  enable_metrics: z.boolean().optional().describe('Enable/disable performance metrics collection'),
-}).strict();
-
-// ============================================
 // TYPES FOR VALIDATED DATA
 // ============================================
 
@@ -238,17 +196,12 @@ export type CreateCardArgs = z.infer<typeof CreateCardSchema>;
 export type UpdateCardArgs = z.infer<typeof UpdateCardSchema>;
 export type DeleteCardArgs = z.infer<typeof DeleteCardSchema>;
 export type SearchCardsArgs = z.infer<typeof SearchCardsSchema>;
-export type GetSpaceCardsArgs = z.infer<typeof GetSpaceCardsSchema>;
-export type GetBoardCardsArgs = z.infer<typeof GetBoardCardsSchema>;
 export type GetCardCommentsArgs = z.infer<typeof GetCardCommentsSchema>;
 export type CreateCommentArgs = z.infer<typeof CreateCommentSchema>;
 export type UpdateCommentArgs = z.infer<typeof UpdateCommentSchema>;
 export type DeleteCommentArgs = z.infer<typeof DeleteCommentSchema>;
-export type GetSpaceArgs = z.infer<typeof GetSpaceSchema>;
 export type ListBoardsArgs = z.infer<typeof ListBoardsSchema>;
-export type GetBoardArgs = z.infer<typeof GetBoardSchema>;
 export type ListColumnsArgs = z.infer<typeof ListColumnsSchema>;
 export type ListLanesArgs = z.infer<typeof ListLanesSchema>;
 export type ListTypesArgs = z.infer<typeof ListTypesSchema>;
 export type ListUsersArgs = z.infer<typeof ListUsersSchema>;
-export type SetLogLevelArgs = z.infer<typeof SetLogLevelSchema>;
