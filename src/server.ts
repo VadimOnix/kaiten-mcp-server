@@ -2413,20 +2413,6 @@ export function createServer(): Server {
 
     try {
       switch (name) {
-        case 'kaiten_get_card_comments': {
-          const validatedArgs = GetCardCommentsSchema.parse(args);
-          const comments = await kaitenClient.getCardComments(validatedArgs.card_id, signal);
-          const simplified = comments.map(simplifyComment);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(simplified, null, 2),
-              },
-            ],
-          };
-        }
-
         case 'kaiten_get_card_children': {
           const validatedArgs = GetCardChildrenSchema.parse(args);
           const children = await kaitenClient.getCardChildren(validatedArgs.card_id, signal);
@@ -2590,56 +2576,6 @@ export function createServer(): Server {
               },
             ],
             ...(succeeded.length === 0 ? { isError: true } : {}),
-          };
-        }
-
-        case 'kaiten_create_comment': {
-          const validatedArgs = CreateCommentSchema.parse(args);
-          const comment = await kaitenClient.createComment(
-            validatedArgs.card_id,
-            validatedArgs.text,
-            undefined,
-            signal
-          );
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(comment, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'kaiten_update_comment': {
-          const validatedArgs = UpdateCommentSchema.parse(args);
-          const comment = await kaitenClient.updateComment(
-            validatedArgs.card_id,
-            validatedArgs.comment_id,
-            validatedArgs.text,
-            undefined,
-            signal
-          );
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: JSON.stringify(comment, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'kaiten_delete_comment': {
-          const validatedArgs = DeleteCommentSchema.parse(args);
-          await kaitenClient.deleteComment(validatedArgs.card_id, validatedArgs.comment_id, signal);
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text: `Comment ${validatedArgs.comment_id} deleted successfully`,
-              },
-            ],
           };
         }
 
