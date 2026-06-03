@@ -1,5 +1,36 @@
 # Changelog
 
+## [3.0.0] - 2026-06-03
+
+### 🧹 Toolset Slimming & Test Coverage Release
+
+> **BREAKING CHANGE:** The toolset was trimmed from 26 to 16 tools. 10 tools were removed (see below). Workflows that call any of the removed tools must migrate to the documented replacements.
+
+### Removed
+- **Cache invalidation tools** (4) — `kaiten_cache_invalidate_spaces`, `kaiten_cache_invalidate_boards`, `kaiten_cache_invalidate_users`, `kaiten_cache_invalidate_all`
+  - Cache invalidation now relies on automatic TTL expiry (`KAITEN_CACHE_TTL_SECONDS`, default 300s). Manual invalidation is no longer needed.
+- **Diagnostics / logging tools** (2) — `kaiten_get_status`, `kaiten_set_log_level`
+  - Logging and diagnostics are now configured exclusively via `KAITEN_LOG_*` environment variables.
+- **Card-listing duplicates** (2) — `kaiten_get_space_cards`, `kaiten_get_board_cards`
+  - Superseded by `kaiten_search_cards` — filter by `space_id` / `board_id` instead.
+- **Single-entity getters** (2) — `kaiten_get_space`, `kaiten_get_board`
+  - These duplicated data already returned by `kaiten_list_spaces` / `kaiten_list_boards`.
+
+### Added
+- **Vitest Test Suite**: New automated test suite under `test/` with 98 tests covering response-shaping helpers and core behaviors.
+- **src/transformers.ts**: Pure response-shaping helpers extracted into a dedicated module for testability and reuse.
+
+### Changed
+- **Removed dead utilities**: `applyResponseFormat()` and `formatAsMarkdown()` removed (no longer referenced after the getter tools were dropped).
+- **Version**: Updated to 3.0.0.
+- **Tool count**: 26 → 16.
+
+### Migration Notes
+- **Cache**: Drop any manual `kaiten_cache_invalidate_*` calls — TTL expiry handles staleness automatically.
+- **Status / log level**: Replace `kaiten_get_status` / `kaiten_set_log_level` usage with `KAITEN_LOG_*` env vars (see README / `.env.example`).
+- **Card lists**: Replace `kaiten_get_space_cards` / `kaiten_get_board_cards` with `kaiten_search_cards` filtered by `space_id` / `board_id`.
+- **Single entities**: Read space/board details from `kaiten_list_spaces` / `kaiten_list_boards` instead of `kaiten_get_space` / `kaiten_get_board`.
+
 ## [2.4.0] - 2025-10-22
 
 ### 🎛️ Token Economy & UX Release
