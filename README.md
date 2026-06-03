@@ -52,6 +52,7 @@ KAITEN_REQUEST_TIMEOUT_MS=10000      # Таймаут запроса в мс (1-
 ```
 
 **Как получить API токен:**
+
 1. Войдите в Kaiten
 2. Откройте настройки профиля
 3. Создайте новый API токен
@@ -78,9 +79,7 @@ npm run build
   "mcpServers": {
     "kaiten": {
       "command": "node",
-      "args": [
-        "/полный/путь/к/MCP Kaiten/dist/index.js"
-      ],
+      "args": ["/полный/путь/к/MCP Kaiten/dist/index.js"],
       "cwd": "/полный/путь/к/MCP Kaiten"
     }
   }
@@ -111,6 +110,127 @@ npm run build
 
 ### 6. Проверка
 
+---
+
+## Установка через Docker (без локальной сборки)
+
+Сервер можно запускать из готового Docker-образа — без установки Node.js и локальной сборки.
+
+### Сборка образа
+
+```bash
+# Локальная сборка
+docker build -t mcp-kaiten .
+
+# Или через npm
+npm run docker:build
+```
+
+### Публикация в реестр (опционально)
+
+Для использования без локальной сборки — соберите и опубликуйте образ:
+
+```bash
+# Docker Hub
+docker tag mcp-kaiten your-username/mcp-kaiten:latest
+docker push your-username/mcp-kaiten:latest
+
+# GitHub Container Registry
+docker tag mcp-kaiten ghcr.io/your-org/kaiten-mcp-server:latest
+docker push ghcr.io/your-org/kaiten-mcp-server:latest
+```
+
+В конфигурации MCP замените `mcp-kaiten` на полное имя образа (например, `ghcr.io/your-org/kaiten-mcp-server:latest`).
+
+### Вариант A: Docker MCP Gateway (Docker Desktop + MCP Toolkit)
+
+Если Cursor подключён к Docker MCP Gateway, добавьте Kaiten через каталог:
+
+```bash
+# 1. Соберите образ
+docker build -t mcp-kaiten .
+
+# 2. Импортируйте каталог (введите имя: kaiten-catalog)
+docker mcp catalog import docker-mcp-catalog.yaml
+
+# 3. Запустите gateway с каталогом Kaiten
+docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
+```
+
+**Настройка в Docker Desktop:**
+
+- **Secrets** → добавьте `mcp-kaiten.api-token` = ваш API токен Kaiten
+- **Config** → настройте `mcp-kaiten` с `api-url` (https://your-domain.kaiten.ru/api/latest) и `space-id` (опционально)
+
+### Вариант B: Прямое подключение (command: docker)
+
+Добавьте в конфигурацию MCP (`claude_desktop_config.json` или Cursor settings):
+
+```json
+{
+  "mcpServers": {
+    "kaiten": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "KAITEN_API_URL=https://your-domain.kaiten.ru/api/latest",
+        "-e",
+        "KAITEN_API_TOKEN=your_api_token_here",
+        "-e",
+        "KAITEN_DEFAULT_SPACE_ID=12345",
+        "mcp-kaiten"
+      ]
+    }
+  }
+}
+```
+
+**Важно:**
+
+- `--rm` — удалять контейнер после завершения
+- `-i` — интерактивный режим (необходим для MCP stdio)
+- Переменные окружения передаются через `-e` (не храните токены в конфиге, используйте `${env:VAR}` если клиент поддерживает)
+
+### Переменные окружения (опционально)
+
+| Переменная                       | Описание                            |
+| -------------------------------- | ----------------------------------- |
+| `KAITEN_API_URL`                 | URL API (обязательно)               |
+| `KAITEN_API_TOKEN`               | API токен (обязательно)             |
+| `KAITEN_DEFAULT_SPACE_ID`        | ID пространства по умолчанию        |
+| `KAITEN_MAX_CONCURRENT_REQUESTS` | Лимит одновременных запросов (1-20) |
+| `KAITEN_CACHE_TTL_SECONDS`       | Время жизни кеша (0 = выкл.)        |
+| `KAITEN_REQUEST_TIMEOUT_MS`      | Таймаут запросов (мс)               |
+
+### Пример с переменными из окружения хоста (macOS/Linux)
+
+```json
+{
+  "mcpServers": {
+    "kaiten": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "KAITEN_API_URL=${env:KAITEN_API_URL}",
+        "-e",
+        "KAITEN_API_TOKEN=${env:KAITEN_API_TOKEN}",
+        "-e",
+        "KAITEN_DEFAULT_SPACE_ID=${env:KAITEN_DEFAULT_SPACE_ID}",
+        "mcp-kaiten"
+      ]
+    }
+  }
+}
+```
+
+### Проверка
+
 Напишите в Claude:
 
 ```
@@ -120,6 +240,7 @@ npm run build
 ## Доступные инструменты (19 tools)
 
 ### Карточки
+
 - `kaiten_get_card` - Получить карточку по ID **[format: json/markdown]**
 - `kaiten_create_card` - Создать новую карточку
 - `kaiten_update_card` - Обновить карточку
@@ -127,6 +248,7 @@ npm run build
 - `kaiten_search_cards` - Поиск карточек с фильтрами (фильтрация по space_id/board_id заменяет отдельные списки) **[verbosity: minimal/normal/detailed]**
 
 ### Комментарии
+
 - `kaiten_get_card_comments` - Получить комментарии карточки
 - `kaiten_create_comment` - Создать комментарий
 - `kaiten_update_comment` - Обновить комментарий
@@ -139,15 +261,18 @@ npm run build
 - `kaiten_remove_card_children` - Отвязать подзадачи (массив ID, continue-on-error)
 
 ### Пространства и доски
+
 - `kaiten_list_spaces` - Список всех пространств
 - `kaiten_list_boards` - Список досок **[verbosity: minimal/normal/detailed]**
 
 ### Справочники (для корректных ID)
+
 - `kaiten_list_columns` - Список колонок (статусов) доски
 - `kaiten_list_lanes` - Список дорожек (lanes/swimlanes) доски
 - `kaiten_list_types` - Список типов карточек доски
 
 ### Пользователи
+
 - `kaiten_get_current_user` - Получить текущего пользователя
 - `kaiten_list_users` - Список пользователей **[verbosity: minimal/normal/detailed]**
 
@@ -176,6 +301,7 @@ npm run build
 ### Verbosity Control - Экономия токенов
 
 **Minimal** - Ультра-компактный формат (90% экономия):
+
 ```
 Найди карточки на доске 456 с minimal verbosity
 # Вывод: 1. [12345] Fix bug
@@ -183,18 +309,21 @@ npm run build
 ```
 
 **Normal** - Сбалансированный (по умолчанию, 80% экономия):
+
 ```
 Найди карточки на доске 456
 # Вывод: полная информация с owner, board, статусом, URL
 ```
 
 **Detailed** - Полный API response:
+
 ```
 Найди карточки на доске 456 с detailed verbosity
 # Вывод: все метаданные, permissions, внутренние поля
 ```
 
 **Когда использовать:**
+
 - `minimal` - Быстрый поиск, получение ID, краткие списки
 - `normal` - Работа с карточками, обычные задачи (по умолчанию)
 - `detailed` - Отладка, интеграции, нужны все поля
@@ -202,6 +331,7 @@ npm run build
 ### Response Format Control
 
 **Markdown** - Человеко-читаемый (по умолчанию):
+
 ```
 Покажи карточку 12345
 # Вывод: # Card Title
@@ -210,12 +340,14 @@ npm run build
 ```
 
 **JSON** - Структурированные данные:
+
 ```
 Покажи карточку 12345 в JSON формате
 # Вывод: {"id": 12345, "title": "...", ...}
 ```
 
 **Когда использовать:**
+
 - `markdown` - Показ пользователю, презентация (по умолчанию)
 - `json` - Интеграции, программная обработка, парсинг
 
@@ -249,6 +381,7 @@ npm run build
 ```
 
 **Как работает Default Space:**
+
 - Все card-операции автоматически используют `KAITEN_DEFAULT_SPACE_ID`
 - Для поиска в других пространствах укажите `space_id` явно
 - Для поиска везде явно попросите "во всех пространствах"
@@ -354,6 +487,17 @@ MCP Kaiten/
 
 ## Устранение неполадок
 
+### "No server info found" / "Server not yet created" (Docker MCP Gateway)
+
+Эти ошибки появляются, когда Cursor подключён к Docker MCP Gateway, но сервер Kaiten не добавлен в каталог.
+
+1. Импортируйте каталог: `docker mcp catalog import docker-mcp-catalog.yaml` (имя: kaiten-catalog)
+2. Запустите gateway **с нашим каталогом**: `docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten`
+3. Настройте в Docker Desktop: секрет `mcp-kaiten.api-token`, config `mcp-kaiten` с `api-url` и `space-id`
+4. Проверьте: `docker mcp tools ls --verbose` — должны появиться инструменты Kaiten
+
+Альтернатива: используйте **Вариант B** (прямое подключение `command: docker`) — не требует Docker MCP Gateway.
+
 ### Сервер не подключается
 
 1. Проверьте правильность пути в конфигурации Claude
@@ -366,6 +510,25 @@ MCP Kaiten/
 - Проверьте, что токен действителен
 - URL должен заканчиваться на `/api/latest`
 - Проверьте права доступа токена в настройках Kaiten
+
+### "unable to get local issuer certificate" (SSL ошибка)
+
+Ошибка возникает при работе в Docker, за корпоративным proxy или при self-hosted Kaiten с самоподписанным сертификатом.
+
+**Решения:**
+
+1. **Docker:** Образ уже включает `ca-certificates`. Пересоберите: `docker build -t mcp-kaiten .`
+
+2. **Корпоративный proxy / self-signed cert:** Добавьте в окружение:
+   ```env
+   KAITEN_INSECURE_SSL=true
+   ```
+   ⚠️ Отключает проверку SSL — используйте только в доверенных сетях.
+
+3. **Docker с переменной окружения:**
+   ```json
+   "args": ["run", "--rm", "-i", "-e", "KAITEN_INSECURE_SSL=true", "-e", "KAITEN_API_URL=...", "-e", "KAITEN_API_TOKEN=...", "mcp-kaiten"]
+   ```
 
 ### Ошибка "Tool result is too large"
 
@@ -414,6 +577,7 @@ KAITEN_LOG_METRICS=false
 #### Готовые профили:
 
 **Production (минимальное логирование):**
+
 ```env
 KAITEN_LOG_LEVEL=error
 KAITEN_LOG_FILE_ENABLED=false
@@ -422,6 +586,7 @@ KAITEN_LOG_METRICS=false
 ```
 
 **Development (умеренное логирование для отладки):**
+
 ```env
 KAITEN_LOG_LEVEL=info
 KAITEN_LOG_FILE_ENABLED=true
@@ -430,6 +595,7 @@ KAITEN_LOG_METRICS=true
 ```
 
 **Debug (полное логирование для глубокого анализа):**
+
 ```env
 KAITEN_LOG_LEVEL=debug
 KAITEN_LOG_MCP_ENABLED=true
@@ -466,6 +632,7 @@ KAITEN_LOG_METRICS=true
 ```
 
 Метрики включают:
+
 - Общее количество запросов
 - Агрегированная статистика по инструментам (latency, success rate, cache hit rate)
 - Последние 100 запросов с деталями
@@ -486,6 +653,7 @@ KAITEN_LOG_METRICS=true
 - **stderr** — все логи, дебаг-информация, ошибки
 
 **Важно:**
+
 - Любой `console.log()` в коде нарушает протокол → используйте `console.error()` для логов
 - Этот сервер гарантирует чистоту stdout через `safeLog` wrapper (src/config.ts:126-152)
 - При отладке смотрите stderr: `node dist/index.js 2>debug.log` или используйте MCP Inspector

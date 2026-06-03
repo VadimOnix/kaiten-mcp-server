@@ -6,7 +6,7 @@ process.env.DOTENV_CONFIG_QUIET = '1';
 dotenv.config();
 
 // Zod schema for environment variables
-const EnvSchema = z.object({
+export const EnvSchema = z.object({
   KAITEN_API_URL: z
     .string()
     .url('KAITEN_API_URL must be a valid URL')
@@ -63,6 +63,14 @@ const EnvSchema = z.object({
       'KAITEN_REQUEST_TIMEOUT_MS must be between 1 and 60000'
     )
     .describe('Request timeout in milliseconds'),
+
+  // SSL/TLS - disable certificate verification (USE ONLY for self-signed/corporate proxy)
+  KAITEN_INSECURE_SSL: z
+    .string()
+    .optional()
+    .default('false')
+    .transform((val) => val === 'true')
+    .describe('Disable SSL certificate verification (unable to get local issuer certificate)'),
 
   // Logging configuration
   KAITEN_LOG_ENABLED: z
@@ -124,6 +132,7 @@ function loadConfig(): EnvConfig {
     KAITEN_MAX_CONCURRENT_REQUESTS: process.env.KAITEN_MAX_CONCURRENT_REQUESTS,
     KAITEN_CACHE_TTL_SECONDS: process.env.KAITEN_CACHE_TTL_SECONDS,
     KAITEN_REQUEST_TIMEOUT_MS: process.env.KAITEN_REQUEST_TIMEOUT_MS,
+    KAITEN_INSECURE_SSL: process.env.KAITEN_INSECURE_SSL,
     KAITEN_LOG_ENABLED: process.env.KAITEN_LOG_ENABLED,
     KAITEN_LOG_LEVEL: process.env.KAITEN_LOG_LEVEL,
     KAITEN_LOG_MCP_ENABLED: process.env.KAITEN_LOG_MCP_ENABLED,
@@ -213,6 +222,11 @@ safeLog.info(`   Default Space ID: ${config.KAITEN_DEFAULT_SPACE_ID || 'not set'
 safeLog.info(`   Max Concurrent Requests: ${config.KAITEN_MAX_CONCURRENT_REQUESTS}`);
 safeLog.info(`   Cache TTL: ${config.KAITEN_CACHE_TTL_SECONDS}s`);
 safeLog.info(`   Request Timeout: ${config.KAITEN_REQUEST_TIMEOUT_MS}ms`);
+if (config.KAITEN_INSECURE_SSL) {
+  safeLog.warn(`   Insecure SSL: ${config.KAITEN_INSECURE_SSL} (TLS verification DISABLED)`);
+} else {
+  safeLog.info(`   Insecure SSL: ${config.KAITEN_INSECURE_SSL}`);
+}
 safeLog.info('✅ Logging configuration:');
 safeLog.info(`   Enabled: ${config.KAITEN_LOG_ENABLED}`);
 safeLog.info(`   Level: ${config.KAITEN_LOG_LEVEL}`);
