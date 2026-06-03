@@ -15,6 +15,11 @@ import { removeCardChildren } from './relations/remove-card-children.js';
 import { getCardParents } from './relations/get-card-parents.js';
 import { addCardParents } from './relations/add-card-parents.js';
 import { removeCardParents } from './relations/remove-card-parents.js';
+import { listSpaces } from './reference/list-spaces.js';
+import { listBoards } from './reference/list-boards.js';
+import { listColumns } from './reference/list-columns.js';
+import { listLanes } from './reference/list-lanes.js';
+import { listTypes } from './reference/list-types.js';
 
 export const ALL_TOOLS: ToolDefinition[] = [
   getCard,
@@ -32,5 +37,10 @@ export const ALL_TOOLS: ToolDefinition[] = [
   getCardParents,
   addCardParents,
   removeCardParents,
+  listSpaces,
+  listBoards,
+  listColumns,
+  listLanes,
+  listTypes,
 ];
 export const TOOL_MAP = new Map<string, ToolDefinition>(ALL_TOOLS.map((t) => [t.name, t]));
