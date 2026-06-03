@@ -115,12 +115,21 @@ describe('protocol contract', () => {
   // rejects an unadvertised tool at the protocol layer (JSON-RPC -32602). The
   // client surfaces this as an error result (isError:true) rather than a throw.
   // This replaces the old hand-written CallTool default branch, which produced
-  // an UNKNOWN_ERROR JSON envelope — functionally equivalent (still isError).
-  it('an unknown tool is rejected at the protocol layer as an error result', async () => {
+  // an UNKNOWN_ERROR JSON envelope. How an unknown tool is surfaced depends on the
+  // installed SDK: newer @modelcontextprotocol/sdk (>=1.29) returns an isError result,
+  // while older versions (e.g. 1.20, the pinned version) reject with a JSON-RPC
+  // -32602 "not found" error. Accept either — both mean "unknown tool -> error".
+  it('an unknown tool is surfaced as an error (reject or isError, per SDK version)', async () => {
     const client = await connect();
-    const res = await client.callTool({ name: 'kaiten_does_not_exist', arguments: {} });
-    expect(res.isError).toBe(true);
-    expect((res.content as any[])[0].text).toMatch(/not found/i);
+    try {
+      const res = await client.callTool({ name: 'kaiten_does_not_exist', arguments: {} });
+      // Newer SDK: error-result envelope
+      expect(res.isError).toBe(true);
+      expect((res.content as any[])[0].text).toMatch(/not found/i);
+    } catch (err: any) {
+      // Older SDK (pinned 1.20): rejects with McpError -32602 "... not found"
+      expect(String(err?.message ?? err)).toMatch(/not found/i);
+    }
   });
 
   it('get_card returns the markdown card sheet for a known card', async () => {
