@@ -42,6 +42,9 @@ import {
   GetCardChildrenSchema,
   AddCardChildrenSchema,
   RemoveCardChildrenSchema,
+  GetCardParentsSchema,
+  AddCardParentsSchema,
+  RemoveCardParentsSchema,
 } from './schemas.js';
 import {
   truncateResponse,
@@ -882,6 +885,113 @@ RELATED TOOLS:
         },
       },
       required: ['card_id', 'child_card_ids'],
+    },
+  },
+  {
+    name: 'kaiten_get_card_parents',
+    description: `Get the parent cards of a card.
+
+PURPOSE: List the parent cards this card is a subtask of. Use to understand where a card sits in the hierarchy or to find parent IDs before detaching.
+
+PARAMETERS:
+- card_id (required): The child card ID. Positive integer.
+- verbosity (optional): minimal | normal (default) | detailed.
+
+RETURNS: JSON array of parent cards (id, title, board, owner, url, ...). Empty array [] if the card has no parents.
+
+RELATED TOOLS:
+- kaiten_add_card_parents: Attach parents
+- kaiten_remove_card_parents: Detach parents
+- kaiten_get_card_children: The inverse (subtasks of a card)`,
+    annotations: {
+      readOnly: true,
+      destructive: false,
+      idempotent: true,
+      openWorld: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        card_id: { type: 'number', description: 'Child card ID' },
+        verbosity: {
+          type: 'string',
+          enum: ['minimal', 'normal', 'detailed'],
+          description: 'Response detail level (default: normal)',
+        },
+      },
+      required: ['card_id'],
+    },
+  },
+  {
+    name: 'kaiten_add_card_parents',
+    description: `Attach one or more parent cards to a card (makes this card their subtask).
+
+PURPOSE: Link a card under existing parent cards. Accepts an array of parent IDs; the server issues one API call per parent and continues on individual failures.
+
+PARAMETERS:
+- card_id (required): The child card ID. Positive integer.
+- parent_card_ids (required): Array of parent card IDs to attach. At least one.
+
+RETURNS: JSON summary { child_card_id, succeeded: number[], failed: [{ parent_card_id, error }], summary }.
+
+NOTE: Attaching is idempotent — re-attaching an existing parent does not create duplicates.
+
+RELATED TOOLS:
+- kaiten_get_card_parents: List current parents
+- kaiten_remove_card_parents: Detach parents`,
+    annotations: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        card_id: { type: 'number', description: 'Child card ID' },
+        parent_card_ids: {
+          type: 'array',
+          items: { type: 'number' },
+          minItems: 1,
+          description: 'IDs of parent cards to attach',
+        },
+      },
+      required: ['card_id', 'parent_card_ids'],
+    },
+  },
+  {
+    name: 'kaiten_remove_card_parents',
+    description: `Detach one or more parent cards from a card.
+
+PURPOSE: Remove parent links. Accepts an array of parent IDs; the server issues one API call per parent and continues on individual failures. Detaches the relationship only — it does NOT delete the parent cards.
+
+PARAMETERS:
+- card_id (required): The child card ID. Positive integer.
+- parent_card_ids (required): Array of parent card IDs to detach. At least one.
+
+RETURNS: JSON summary { child_card_id, succeeded: number[], failed: [{ parent_card_id, error }], summary }.
+
+RELATED TOOLS:
+- kaiten_get_card_parents: List current parents to find IDs
+- kaiten_add_card_parents: Attach parents`,
+    annotations: {
+      readOnly: false,
+      destructive: false,
+      idempotent: true,
+      openWorld: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        card_id: { type: 'number', description: 'Child card ID' },
+        parent_card_ids: {
+          type: 'array',
+          items: { type: 'number' },
+          minItems: 1,
+          description: 'IDs of parent cards to detach',
+        },
+      },
+      required: ['card_id', 'parent_card_ids'],
     },
   },
   {
@@ -2576,6 +2686,89 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         const result = {
           parent_card_id: validatedArgs.card_id,
+          succeeded,
+          failed,
+          summary: `${succeeded.length} removed, ${failed.length} failed`,
+        };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+          ...(succeeded.length === 0 ? { isError: true } : {}),
+        };
+      }
+
+      case 'kaiten_get_card_parents': {
+        const validatedArgs = GetCardParentsSchema.parse(args);
+        const parents = await kaitenClient.getCardParents(validatedArgs.card_id, signal);
+        const verbosity = validatedArgs.verbosity || 'normal';
+        const processed = applyCardVerbosity(parents, verbosity, simplifyCardCompact);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(processed, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'kaiten_add_card_parents': {
+        const validatedArgs = AddCardParentsSchema.parse(args);
+        const succeeded: number[] = [];
+        const failed: Array<{ parent_card_id: number; error: string }> = [];
+        for (const parentId of validatedArgs.parent_card_ids) {
+          try {
+            await kaitenClient.addCardParent(validatedArgs.card_id, parentId, signal);
+            succeeded.push(parentId);
+          } catch (err) {
+            failed.push({
+              parent_card_id: parentId,
+              error: err instanceof KaitenError
+                ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+                : err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+        const result = {
+          child_card_id: validatedArgs.card_id,
+          succeeded,
+          failed,
+          summary: `${succeeded.length} added, ${failed.length} failed`,
+        };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+          ...(succeeded.length === 0 ? { isError: true } : {}),
+        };
+      }
+
+      case 'kaiten_remove_card_parents': {
+        const validatedArgs = RemoveCardParentsSchema.parse(args);
+        const succeeded: number[] = [];
+        const failed: Array<{ parent_card_id: number; error: string }> = [];
+        for (const parentId of validatedArgs.parent_card_ids) {
+          try {
+            await kaitenClient.removeCardParent(validatedArgs.card_id, parentId, signal);
+            succeeded.push(parentId);
+          } catch (err) {
+            failed.push({
+              parent_card_id: parentId,
+              error: err instanceof KaitenError
+                ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+                : err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+        const result = {
+          child_card_id: validatedArgs.card_id,
           succeeded,
           failed,
           summary: `${succeeded.length} removed, ${failed.length} failed`,
