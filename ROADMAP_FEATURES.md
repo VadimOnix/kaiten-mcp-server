@@ -221,7 +221,7 @@ _Релевантно для Service Desk._
 
 ### Фаза 1 — Core расширения (v2.4)
 
-1. **Card Children** — `kaiten_add_card_children`, `kaiten_remove_card_children`, `kaiten_get_card_children`
+1. ✅ **Card Children** — `kaiten_add_card_children`, `kaiten_remove_card_children`, `kaiten_get_card_children` (реализовано в v3.1.0)
 2. **Time Logs** — `kaiten_add_time_log`, `kaiten_get_card_time_logs`
 3. **Checklists** — `kaiten_add_checklist`, `kaiten_get_card_checklists`, `kaiten_add_checklist_item`, `kaiten_update_checklist_item`, `kaiten_delete_checklist_item`
 4. **Tags** — `kaiten_add_card_tag`, `kaiten_remove_card_tag`

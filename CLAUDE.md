@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) server for Kaiten API integration. It provides 16 tools for managing Kaiten cards, comments, spaces, and boards directly from Claude Desktop. The server is production-ready with comprehensive logging, caching, retry logic, and concurrency control.
+This is an MCP (Model Context Protocol) server for Kaiten API integration. It provides 19 tools for managing Kaiten cards, comments, spaces, and boards directly from Claude Desktop. The server is production-ready with comprehensive logging, caching, retry logic, and concurrency control.
 
 The toolset was deliberately trimmed from 26 to 16: the cache-invalidation tools, runtime diagnostics/log-level tools, redundant card listings (`get_space_cards`/`get_board_cards`, superseded by `search_cards`), and detail getters (`get_space`/`get_board`) were removed. Logging is now configured only via environment variables, and the cache relies on automatic TTL expiry. Pure response-shaping helpers live in `src/transformers.ts`; the test suite (Vitest) lives in `test/` and is run with `npm test`.
 
-**Current Version:** 3.0.0
+**Current Version:** 3.1.0
 
 ## Development Commands
 
@@ -43,7 +43,7 @@ npm run inspector
 Unit tests live in `test/` and run on [Vitest](https://vitest.dev) via `npm test`.
 Required ENV vars are injected by `vitest.config.ts`, so no real `.env` is needed.
 
-Coverage targets the pure, deterministic layers that back the 16 tools:
+Coverage targets the pure, deterministic layers that back the 19 tools:
 - `test/schemas.test.ts` — Zod input validation for every tool
 - `test/transformers.test.ts` — `src/transformers.ts` response simplifiers
 - `test/utils.test.ts` — verbosity control + response truncation
@@ -73,7 +73,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 
 1. **src/index.ts** (main MCP server)
    - Implements MCP Server with stdio transport
-   - Defines 26 tool handlers (cards, comments, spaces, boards, cache, logging)
+   - Defines 19 tool handlers (cards, comments, children, spaces, boards)
    - Implements MCP Resources (kaiten-card:///, kaiten-space:///, etc.)
    - Implements Server Prompts with usage instructions
    - Uses Zod schemas for all tool parameter validation
