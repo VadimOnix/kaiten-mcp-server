@@ -47,4 +47,3 @@ export const ALL_TOOLS: ToolDefinition[] = [
   getCurrentUser,
   listUsers,
 ];
-export const TOOL_MAP = new Map<string, ToolDefinition>(ALL_TOOLS.map((t) => [t.name, t]));

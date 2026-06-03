@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Architecture refactor (internal, behaviour-neutral).** The 22 tools are now
+  self-contained deep modules under `src/tools/**`, each built with a minimal
+  `defineTool` seam and registered from `ALL_TOOLS`. `src/index.ts` is a thin
+  entrypoint; `createServer()` now builds a high-level `McpServer` and registers
+  the tools via `McpServer.registerTool`, with each tool's advertised JSON Schema
+  **derived from its Zod schema** (a single source of truth). The ~2000-line
+  hand-written JSON-Schema `tools[]` array was deleted. Tool handlers are
+  `(args, ctx)` with zero module globals (dependencies injected via
+  `ServerContext`), and `mapError` is the single error funnel. Resources and the
+  server prompt are preserved on custom handlers. `tsc --noEmit` is now clean.
+  - Tool *results* are byte-identical (guarded by 22 characterization snapshots).
+  - Advertised schemas now carry field descriptions sourced from Zod and declare
+    `additionalProperties: false`. One accepted minor change: unknown extra arg
+    keys are now silently stripped by the SDK rather than rejected with
+    `VALIDATION_ERROR` (declared-field type/required validation is unchanged).
+  - Advertised `resources` capability is now `{ subscribe: false }` (the non-standard
+    `templates: true` flag is no longer sent; resource templates remain fully functional).
+  - See `docs/adr/0001-defer-tool-middleware.md` for the design and SDK spike findings.
+- No tools added or removed; the package version is unchanged.
+
 ## [3.2.0] - 2026-06-03
 
 ### Added

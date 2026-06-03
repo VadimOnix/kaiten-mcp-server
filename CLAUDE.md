@@ -71,47 +71,63 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 
 ### Core Components
 
-1. **src/index.ts** (main MCP server)
-   - Implements MCP Server with stdio transport
-   - Defines 22 tool handlers (cards, comments, children, parents, spaces, boards)
-   - Implements MCP Resources (kaiten-card:///, kaiten-space:///, etc.)
-   - Implements Server Prompts with usage instructions
-   - Uses Zod schemas for all tool parameter validation
+1. **src/index.ts** (thin entrypoint)
+   - Connects the stdio transport to the server built by `createServer()`
+   - No tool/handler logic lives here anymore
 
-2. **src/kaiten-client.ts** (API client)
+2. **src/server.ts** (`createServer()`)
+   - Builds a high-level `McpServer` (SDK `server/mcp.js`) over stdio
+   - Registers the 22 tools via `registerTools()` (see `src/tools/registry.ts`);
+     each tool's advertised JSON Schema is **derived from its Zod schema**
+     (`def.schema.shape`) — there is NO hand-written `tools[]` JSON-Schema array
+   - Attaches the MCP Resources (`kaiten-card:///`, `kaiten-space:///`,
+     `kaiten-board:///{id}/cards`, opaque `kaiten-current-user:`) and the server
+     prompt as custom handlers on the wrapped low-level `server.server`
+   - See `docs/adr/0001-defer-tool-middleware.md` for the design and spike findings
+
+3. **src/tools/** (deep-module tools — the single source of truth)
+   - One file per tool (`src/tools/<group>/<tool>.ts`), built with `defineTool({
+     name, description, schema, annotations, handler })` from `src/tools/kit.ts`
+   - Every handler is `(args, ctx)` with **zero module globals**; dependencies
+     arrive via an injected `ServerContext` from `src/container.ts#makeCtx`
+   - `ALL_TOOLS`/`TOOL_MAP` in `src/tools/index.ts`; `mapError` (kit.ts) is the
+     single error funnel; group descriptions live in each group's `descriptions.ts`
+
+4. **src/kaiten-client.ts** (API client)
    - Axios-based HTTP client with retry logic (3 retries with exponential backoff)
    - p-queue for concurrency control (default: 5 concurrent requests)
    - Enhanced error handling with KaitenError class (categorized error types)
    - Idempotency key support for safe retries on mutations
    - Logging middleware integration for request/response tracking
 
-3. **src/config.ts** (configuration & validation)
+5. **src/config.ts** (configuration & validation)
    - Zod-based runtime validation for all ENV variables
    - Validates API_URL format (must end with `/api/latest`)
    - Validates API_TOKEN length (min 20 chars)
    - `redactSecrets()` function - masks tokens in logs/errors
    - `safeLog` wrapper - stderr-safe logging that never touches stdout
 
-4. **src/cache.ts** (LRU cache)
+6. **src/cache.ts** (LRU cache)
    - LRU cache with TTL for spaces, boards, users
    - Default: 100 items per cache type, 300s TTL
    - Automatic expiration checks
    - Cache statistics via `getStats()`
 
-5. **src/schemas.ts** (Zod validation schemas)
-   - 15+ Zod schemas for all tool parameters
+7. **src/schemas.ts** (Zod validation schemas)
+   - 15+ Zod schemas for all tool parameters — the single source of truth for
+     BOTH runtime validation AND the advertised JSON Schema (derived via `.shape`)
    - VerbosityEnum: minimal | normal | detailed
    - Idempotency key validation
    - Structured error responses
 
-6. **src/logging/** (v2.3.0 logging system)
+8. **src/logging/** (v2.3.0 logging system)
    - **logger.ts** - Unified singleton logger
    - **file-logger.ts** - Pino JSON file logging with secret redaction
    - **mcp-logger.ts** - MCP notifications/message logger
    - **metrics.ts** - Performance metrics collector (latency, success rate, cache hits)
    - **types.ts** - RFC 5424 log levels + TypeScript types
 
-7. **src/middleware/logging-middleware.ts**
+9. **src/middleware/logging-middleware.ts**
    - Axios interceptor for HTTP request/response logging
    - Automatic metrics recording for all API calls
 
@@ -140,7 +156,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 - All errors are JSON-serializable via `toJSON()`
 
 **Helper Functions Pattern:**
-- `simplifyUser()`, `simplifySpace()`, `simplifyCard()`, `simplifyComment()` in src/index.ts
+- `simplifyUser()`, `simplifySpace()`, `simplifyCard()`, `simplifyComment()` in src/transformers.ts
 - Reduce response sizes by 92-96% (removes base64 avatars, permissions, UI metadata)
 - Enhanced `simplifyCard()` adds human-readable fields: board_title, column_title, owner_name, members
 
@@ -179,34 +195,56 @@ KAITEN_LOG_METRICS=false                         # Collect performance metrics
 
 ## Adding New Tools
 
-When adding a new MCP tool:
+Tools are **deep modules**: one file per tool under `src/tools/<group>/<tool>.ts`,
+built with `defineTool` and registered from `ALL_TOOLS`. The advertised JSON Schema
+is derived from the tool's Zod schema, so you never hand-write JSON Schema. Follow TDD.
 
-1. **Define Zod schema** in src/schemas.ts
+1. **Define the Zod schema** in `src/schemas.ts` (give every field a `.describe()` —
+   the text flows into the advertised schema). Keep `.strict()`.
    ```typescript
    export const MyToolSchema = z.object({
-     param: z.number().describe("Parameter description")
-   });
+     param: z.number().int().positive().describe("Parameter description"),
+   }).strict();
    ```
 
-2. **Add to KaitenClient** (if new API call needed) in src/kaiten-client.ts
+2. **Add the client method** (if a new API call is needed) in `src/kaiten-client.ts`.
+   Accept the per-call `AbortSignal` so the tool can forward `ctx.signal`:
    ```typescript
-   async myMethod(param: number): Promise<Result> {
-     return this.queuedRequest<Result>('/endpoint', {
-       method: 'POST',
-       data: { param }
-     });
+   async myMethod(param: number, signal?: AbortSignal): Promise<Result> {
+     return this.queuedRequest<Result>('/endpoint', { method: 'POST', data: { param }, signal });
    }
    ```
 
-3. **Register tool** in src/index.ts
-   - Add to `tools` array in ListToolsRequest handler
-   - Add case to CallToolRequest handler with Zod validation
-   - Use `simplify*()` helpers to reduce response size
-   - Apply verbosity if it's a read operation
+3. **Write the tool module** `src/tools/<group>/my-tool.ts` with `defineTool`. Put the
+   description in the group's `descriptions.ts`. The handler is `(args, ctx)` and uses
+   `ctx.*` (`client`, `cache`, `config`, `log`, `signal`) — **never module globals**.
+   Return a plain value (auto-serialized to pretty JSON), `text(s)` for a pre-rendered
+   string (markdown), or a raw `ToolResult` for full control. `defineTool` validates
+   args and funnels thrown errors through `mapError`.
+   ```typescript
+   import { defineTool } from '../kit.js';
+   import { MyToolSchema } from '../../schemas.js';
+   import { MY_TOOL_DESC } from './descriptions.js';
 
-4. **Update documentation**
-   - Increment tool count in package.json, README.md, CHANGELOG.md
-   - Add to TOOLS.md if it exists
+   export const myTool = defineTool({
+     name: 'kaiten_my_tool',
+     description: MY_TOOL_DESC,
+     schema: MyToolSchema,
+     annotations: { readOnly: true }, // or destructive / idempotent / openWorld
+     handler: async ({ param }, ctx) => ctx.client.myMethod(param, ctx.signal),
+   });
+   ```
+
+4. **Register it**: import the tool in `src/tools/index.ts` and add it to `ALL_TOOLS`.
+   `registerTools()` (src/tools/registry.ts) advertises it automatically — no change to
+   `src/server.ts` needed.
+
+5. **Write a unit test** against a fake `ServerContext` (call `myTool.run(args, fakeCtx)`
+   and assert the returned `ToolResult`), plus a happy-path characterization snapshot in
+   `test/server.test.ts` if it merits end-to-end coverage.
+
+6. **Update documentation**: increment the tool count in package.json, README.md,
+   CHANGELOG.md, and add to TOOLS.md if it exists.
 
 ## Testing with MCP Inspector
 

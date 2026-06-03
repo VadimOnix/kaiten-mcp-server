@@ -431,14 +431,28 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 
 ## Структура проекта
 
+> Архитектура: 22 инструмента — это самостоятельные «глубокие модули» в `src/tools/**`,
+> описанные через `defineTool`. `createServer()` собирает высокоуровневый `McpServer`
+> и регистрирует инструменты через `McpServer.registerTool`; JSON-схема каждого
+> инструмента **выводится из его Zod-схемы** (единый источник истины), поэтому
+> рукописный массив JSON-Schema удалён. Подробности — в `docs/adr/0001-defer-tool-middleware.md`.
+
 ```
 MCP Kaiten/
 ├── src/
-│   ├── index.ts          # MCP сервер
+│   ├── index.ts          # Тонкая точка входа (stdio → createServer)
+│   ├── server.ts         # createServer(): McpServer + ресурсы/промпт
+│   ├── container.ts      # makeCtx(): сборка ServerContext (DI)
+│   ├── tools/            # 22 инструмента как глубокие модули
+│   │   ├── index.ts      # ALL_TOOLS / TOOL_MAP
+│   │   ├── kit.ts        # defineTool, ServerContext, mapError
+│   │   ├── registry.ts   # registerTools() → McpServer.registerTool
+│   │   └── <группа>/     # cards/ comments/ relations/ reference/ users/
 │   ├── kaiten-client.ts  # Kaiten API клиент
 │   ├── config.ts         # Конфигурация и валидация
 │   ├── cache.ts          # LRU кеш
-│   ├── schemas.ts        # Zod схемы валидации
+│   ├── schemas.ts        # Zod схемы (валидация + источник JSON-схем)
+│   ├── transformers.ts   # simplify*() — сжатие ответов
 │   ├── utils.ts          # Utility functions (11 helpers)
 │   ├── logging/          # Система логирования
 │   │   ├── index.ts      # Экспорты
@@ -449,6 +463,8 @@ MCP Kaiten/
 │   │   └── metrics.ts        # Performance metrics collector
 │   └── middleware/       # HTTP middleware
 │       └── logging-middleware.ts  # Axios logging interceptor
+├── docs/adr/             # Architecture Decision Records
+├── test/                 # Vitest unit + characterization tests
 ├── evaluations/          # Evaluation suite
 │   ├── README.md         # Руководство по evaluations
 │   └── kaiten-eval-template.xml  # Шаблон с 10 вопросами

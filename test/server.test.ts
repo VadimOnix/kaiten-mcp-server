@@ -28,7 +28,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { KaitenError, KaitenErrorType } from '../src/kaiten-client.js';
 import { cache } from '../src/cache.js';
-import { TOOL_MAP } from '../src/tools/index.js';
+import { ALL_TOOLS } from '../src/tools/index.js';
 
 async function connect(): Promise<Client> {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
@@ -69,13 +69,58 @@ describe('protocol contract', () => {
     }
   });
 
-  it('TOOL_MAP has exactly 22 entries and covers every advertised tool name', async () => {
-    expect(TOOL_MAP.size).toBe(22);
+  it('ALL_TOOLS has exactly 22 entries and covers every advertised tool name', async () => {
+    expect(ALL_TOOLS.length).toBe(22);
     const client = await connect();
     const { tools } = await client.listTools();
+    const names = new Set(ALL_TOOLS.map(d => d.name));
     for (const t of tools) {
-      expect(TOOL_MAP.has(t.name), `TOOL_MAP missing entry for ${t.name}`).toBe(true);
+      expect(names.has(t.name), `ALL_TOOLS missing entry for ${t.name}`).toBe(true);
     }
+  });
+
+  // Schema-fidelity guard for the Zod -> JSON-Schema derivation done by
+  // McpServer.registerTool (Task 12). Asserts the properties the SPIKE confirmed
+  // the SDK (v1.29.0) actually produces from a tool's `schema.shape`:
+  //   - inputSchema.type === 'object'
+  //   - field `.describe()` text flows through to the advertised schema (the
+  //     Phase-2 win: descriptions are single-sourced from Zod)
+  //   - the `required` array matches the schema's required fields (card_id is
+  //     required; format has a default, so it is NOT required)
+  //   - additionalProperties === false survives the derivation (the SDK wraps
+  //     the raw shape in z.object(shape) whose JSON Schema is closed by default)
+  it('advertises kaiten_get_card with a Zod-derived schema (descriptions, required, closed object)', async () => {
+    const client = await connect();
+    const { tools } = await client.listTools();
+    const getCard = tools.find((t) => t.name === 'kaiten_get_card');
+    expect(getCard, 'kaiten_get_card should be advertised').toBeDefined();
+
+    const schema = getCard!.inputSchema as {
+      type: string;
+      properties: Record<string, { description?: string }>;
+      required?: string[];
+      additionalProperties?: unknown;
+    };
+
+    expect(schema.type).toBe('object');
+    // Phase-2 win: the field description is carried from the Zod `.describe()`.
+    expect(schema.properties.card_id?.description ?? '').toBeTruthy();
+    // Required set: card_id only (format has a Zod default -> optional).
+    expect(schema.required).toEqual(['card_id']);
+    // Closed object survives the .shape -> z.object(shape) derivation.
+    expect(schema.additionalProperties).toBe(false);
+  });
+
+  // Unknown-tool behaviour under McpServer (Task 12): the high-level server
+  // rejects an unadvertised tool at the protocol layer (JSON-RPC -32602). The
+  // client surfaces this as an error result (isError:true) rather than a throw.
+  // This replaces the old hand-written CallTool default branch, which produced
+  // an UNKNOWN_ERROR JSON envelope — functionally equivalent (still isError).
+  it('an unknown tool is rejected at the protocol layer as an error result', async () => {
+    const client = await connect();
+    const res = await client.callTool({ name: 'kaiten_does_not_exist', arguments: {} });
+    expect(res.isError).toBe(true);
+    expect((res.content as any[])[0].text).toMatch(/not found/i);
   });
 
   it('get_card returns the markdown card sheet for a known card', async () => {
@@ -118,6 +163,60 @@ describe('protocol contract', () => {
     );
     ac.abort();
     await expect(p).rejects.toBeDefined();
+  });
+});
+
+// =============================================================================
+// Resources + prompts migration guard (Task 12).
+//
+// Task 12 swapped the low-level Server for McpServer. Tools moved onto
+// McpServer.registerTool, but resources and the server prompt were kept as
+// custom handlers attached to the wrapped low-level Server (server.server),
+// preserving their original bespoke behaviour (dynamic default-space card
+// listing, multi-protocol URI parsing incl. the OPAQUE `kaiten-current-user:`
+// URI). These tests guard that the migration kept them functional.
+// =============================================================================
+describe('resources + prompts (migrated to McpServer.server handlers)', () => {
+  it('lists the 4 resource templates including the opaque kaiten-current-user URI', async () => {
+    const client = await connect();
+    const { resourceTemplates } = await client.listResourceTemplates();
+    const uris = resourceTemplates.map((t) => t.uriTemplate).sort();
+    expect(uris).toEqual(
+      [
+        'kaiten-board:///{boardId}/cards',
+        'kaiten-card:///{cardId}',
+        'kaiten-current-user:',
+        'kaiten-space:///{spaceId}',
+      ].sort(),
+    );
+  });
+
+  it('reads the opaque kaiten-current-user: resource and returns simplified user JSON', async () => {
+    mockAxiosInstance.get.mockResolvedValueOnce({
+      data: { id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true },
+    });
+    const client = await connect();
+    const res = await client.readResource({ uri: 'kaiten-current-user:' });
+    expect(res.contents[0].mimeType).toBe('application/json');
+    expect(JSON.parse(res.contents[0].text as string)).toMatchObject({ id: 1, full_name: 'Me' });
+  });
+
+  it('reads a kaiten-card:/// resource and returns simplified card JSON', async () => {
+    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 5, title: 'Demo' } });
+    const client = await connect();
+    const res = await client.readResource({ uri: 'kaiten-card:///5' });
+    expect(res.contents[0].uri).toBe('kaiten-card:///5');
+    expect(JSON.parse(res.contents[0].text as string)).toMatchObject({ id: 5, title: 'Demo' });
+  });
+
+  it('lists the server prompt and returns its instruction message', async () => {
+    const client = await connect();
+    const { prompts } = await client.listPrompts();
+    expect(prompts.map((p) => p.name)).toContain('kaiten-server-prompt');
+
+    const got = await client.getPrompt({ name: 'kaiten-server-prompt' });
+    expect(got.messages[0].role).toBe('user');
+    expect((got.messages[0].content as { text: string }).text).toContain('Kaiten project management MCP server');
   });
 });
 
