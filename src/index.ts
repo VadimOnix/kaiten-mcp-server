@@ -20,6 +20,7 @@ import { cache } from './cache.js';
 import { logger } from './logging/index.js';
 import {
   KaitenClient,
+  KaitenError,
   CreateCardParams,
   UpdateCardParams,
 } from './kaiten-client.js';
@@ -2531,7 +2532,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           } catch (err) {
             failed.push({
               child_card_id: childId,
-              error: err instanceof Error ? err.message : String(err),
+              error: err instanceof KaitenError
+                ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+                : err instanceof Error ? err.message : String(err),
             });
           }
         }
@@ -2548,6 +2551,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(result, null, 2),
             },
           ],
+          ...(succeeded.length === 0 ? { isError: true } : {}),
         };
       }
 
@@ -2562,7 +2566,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           } catch (err) {
             failed.push({
               child_card_id: childId,
-              error: err instanceof Error ? err.message : String(err),
+              error: err instanceof KaitenError
+                ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+                : err instanceof Error ? err.message : String(err),
             });
           }
         }
@@ -2579,6 +2585,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(result, null, 2),
             },
           ],
+          ...(succeeded.length === 0 ? { isError: true } : {}),
         };
       }
 
