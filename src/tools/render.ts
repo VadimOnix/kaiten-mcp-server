@@ -1,4 +1,3 @@
-import { safeLog } from '../config.js';
 import { simplifyCard } from '../transformers.js';
 import type { ServerContext } from './kit.js';
 
@@ -16,7 +15,8 @@ import type { ServerContext } from './kit.js';
  *   - the module global `DEFAULT_SPACE_ID` -> `ctx.config.KAITEN_DEFAULT_SPACE_ID`
  *   - `kaitenClient.*` -> `ctx.client.*`, with `ctx.signal` forwarded
  *
- * `safeLog.warn` is kept as-is: it is a stderr-only side-effect (per the MCP I/O
+ * Logging now goes through `ctx.log.warning` (injected context logger) rather than
+ * the module-global `safeLog`. It is a stderr-only side-effect (per the MCP I/O
  * rule) and never touches the returned markdown string, so it does not affect
  * byte-stability.
  */
@@ -79,7 +79,7 @@ export async function renderCardMarkdown(card: any, ctx: ServerContext): Promise
                   const fullCard = await ctx.client.getCard(child.id, ctx.signal);
                   return fullCard;
                 } catch (error) {
-                  safeLog.warn(`Failed to fetch blocking details for card ${child.id}: ${error}`);
+                  ctx.log.warning(`Failed to fetch blocking details for card ${child.id}: ${error}`);
                   return child;
                 }
               }
@@ -109,7 +109,7 @@ export async function renderCardMarkdown(card: any, ctx: ServerContext): Promise
           });
         }
       } catch (error) {
-        safeLog.warn(`Failed to fetch children cards: ${error}`);
+        ctx.log.warning(`Failed to fetch children cards: ${error}`);
         output += `\nℹ️ Unable to load child cards details. Use kaiten_search_cards to find them.\n`;
       }
     }

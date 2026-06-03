@@ -27,6 +27,12 @@ describe('kaiten_delete_card tool module', () => {
     expect(res.content[0].text).toContain('UNKNOWN_ERROR');
   });
 
+  it('rejects invalid args via the schema', async () => {
+    const res = await deleteCard.run({ card_id: -1 }, fakeCtx());
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('VALIDATION_ERROR');
+  });
+
   it('has expected metadata', () => {
     expect(deleteCard.name).toBe('kaiten_delete_card');
     expect(deleteCard.annotations.destructive).toBe(true);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { searchCards } from '../../../src/tools/cards/search-cards.js';
+import { searchCards, searchCardsHandler } from '../../../src/tools/cards/search-cards.js';
 
 const fakeCtx = (over: Partial<any> = {}) =>
   ({
@@ -35,16 +35,31 @@ describe('kaiten_search_cards tool module', () => {
     expect(params.query).toBe('Found');
   });
 
-  it('warns when limit > 20 without a space_id filter', async () => {
+  it('does NOT warn when effectiveLimit <= 20', async () => {
     const searchCardsFn = vi.fn().mockResolvedValue([]);
     const warning = vi.fn();
     await searchCards.run(
       { limit: 20, space_id: 0 },
-      fakeCtx({ client: { searchCards: searchCardsFn }, log: { warning } }),
+      fakeCtx({ client: { searchCards: searchCardsFn }, log: { warning, info: vi.fn(), error: vi.fn(), debug: vi.fn() } }),
     );
-    // limit=20 is not > 20, so no warning here; verify space_id=0 omits the default
+    // limit=20 is not > 20, so warning must NOT fire
+    expect(warning).not.toHaveBeenCalled();
+    // space_id=0 omits the default
     const params = searchCardsFn.mock.calls[0][0];
     expect(params.space_id).toBeUndefined();
+  });
+
+  it('DOES warn when effectiveLimit > 20 and no space_id filter (handler direct call, bypasses schema max:20)', async () => {
+    // The Zod schema enforces limit max:20, so limit=21 would be rejected via .run().
+    // Call the exported handler directly to exercise the warning branch.
+    const searchCardsFn = vi.fn().mockResolvedValue([]);
+    const warning = vi.fn();
+    await searchCardsHandler(
+      { limit: 21, space_id: 0 } as any,
+      fakeCtx({ client: { searchCards: searchCardsFn }, log: { warning, info: vi.fn(), error: vi.fn(), debug: vi.fn() } }),
+    );
+    // limit=21 > 20 AND space_id=0 means params.space_id is undefined → warning fires
+    expect(warning).toHaveBeenCalled();
   });
 
   it('renders minimal verbosity lines', async () => {

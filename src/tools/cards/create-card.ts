@@ -16,7 +16,7 @@ export const createCard = defineTool({
   name: 'kaiten_create_card',
   description: CREATE_CARD_DESC,
   schema: CreateCardSchema,
-  annotations: {},
+  annotations: { idempotent: true },
   handler: async (args, ctx) => {
     const params: CreateCardParams = {
       title: args.title,
