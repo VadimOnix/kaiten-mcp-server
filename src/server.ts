@@ -16,11 +16,11 @@ import { config, safeLog } from './config.js';
 import { cache } from './cache.js';
 import { logger } from './logging/index.js';
 import {
-  KaitenClient,
   KaitenError,
   CreateCardParams,
   UpdateCardParams,
 } from './kaiten-client.js';
+import { client as kaitenClient } from './container.js';
 import {
   GetCardSchema,
   CreateCardSchema,
@@ -65,9 +65,6 @@ const DEFAULT_SPACE_ID = config.KAITEN_DEFAULT_SPACE_ID;
 if (DEFAULT_SPACE_ID) {
   safeLog.info(`Using default space ID: ${DEFAULT_SPACE_ID}`);
 }
-
-// Initialize Kaiten client (with retry, backoff, concurrency control)
-const kaitenClient = new KaitenClient(API_URL, API_TOKEN);
 
 // Initialize MCP logger (will be set when server is ready)
 const mcpLogger = logger.getMCPLogger();
