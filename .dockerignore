@@ -25,6 +25,8 @@ logs/
 
 # Evaluations and tests
 evaluations/
+test/
+vitest.config.ts
 test-*.js
 test-*.ts
 *.test.ts

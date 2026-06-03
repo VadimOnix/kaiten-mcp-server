@@ -39,7 +39,7 @@ LABEL org.opencontainers.image.description="MCP server for Kaiten API integratio
 
 # Required for Docker MCP Gateway (self-configured / docker://)
 # Without this label: "No server info found", "Server not yet created"
-LABEL io.docker.server.metadata="{\"name\":\"mcp-kaiten\",\"description\":\"MCP server for Kaiten API - cards, comments, spaces, boards\",\"command\":[\"node\",\"dist/index.js\"],\"env\":[{\"name\":\"KAITEN_API_URL\",\"value\":\"{{mcp-kaiten.api-url}}\"},{\"name\":\"KAITEN_DEFAULT_SPACE_ID\",\"value\":\"{{mcp-kaiten.space-id}}\"}],\"secrets\":[{\"name\":\"mcp-kaiten.api-token\",\"env\":\"KAITEN_API_TOKEN\",\"example\":\"your_kaiten_api_token\"}]}"
+LABEL io.docker.server.metadata="{\"name\":\"mcp-kaiten\",\"description\":\"MCP server for Kaiten API - cards, comments, spaces, boards\",\"command\":[\"node\",\"dist/index.js\"],\"env\":[{\"name\":\"KAITEN_API_URL\",\"value\":\"{{mcp-kaiten.api-url}}\"},{\"name\":\"KAITEN_DEFAULT_SPACE_ID\",\"value\":\"{{mcp-kaiten.space-id}}\"},{\"name\":\"KAITEN_INSECURE_SSL\",\"value\":\"false\"}],\"secrets\":[{\"name\":\"mcp-kaiten.api-token\",\"env\":\"KAITEN_API_TOKEN\",\"example\":\"your_kaiten_api_token\"}]}"
 
 # Create non-root user (security best practice)
 RUN addgroup -g 1001 -S mcp && \

@@ -6,7 +6,7 @@ process.env.DOTENV_CONFIG_QUIET = '1';
 dotenv.config();
 
 // Zod schema for environment variables
-const EnvSchema = z.object({
+export const EnvSchema = z.object({
   KAITEN_API_URL: z
     .string()
     .url('KAITEN_API_URL must be a valid URL')
@@ -222,7 +222,11 @@ safeLog.info(`   Default Space ID: ${config.KAITEN_DEFAULT_SPACE_ID || 'not set'
 safeLog.info(`   Max Concurrent Requests: ${config.KAITEN_MAX_CONCURRENT_REQUESTS}`);
 safeLog.info(`   Cache TTL: ${config.KAITEN_CACHE_TTL_SECONDS}s`);
 safeLog.info(`   Request Timeout: ${config.KAITEN_REQUEST_TIMEOUT_MS}ms`);
-safeLog.info(`   Insecure SSL: ${config.KAITEN_INSECURE_SSL}`);
+if (config.KAITEN_INSECURE_SSL) {
+  safeLog.warn(`   Insecure SSL: ${config.KAITEN_INSECURE_SSL} (TLS verification DISABLED)`);
+} else {
+  safeLog.info(`   Insecure SSL: ${config.KAITEN_INSECURE_SSL}`);
+}
 safeLog.info('✅ Logging configuration:');
 safeLog.info(`   Enabled: ${config.KAITEN_LOG_ENABLED}`);
 safeLog.info(`   Level: ${config.KAITEN_LOG_LEVEL}`);

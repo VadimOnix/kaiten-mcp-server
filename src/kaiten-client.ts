@@ -301,14 +301,17 @@ export class KaitenClient {
 
     // Network error (no response from server)
     if (!error.response) {
-      const isSslError = /certificate|issuer|UNABLE_TO_GET_ISSUER_CERT|SSL/i.test(error.message || '');
+      const sslText = `${error.message || ''} ${(error as any).code || ''}`;
+      const isSslError = /certificate|issuer|UNABLE_TO_GET|CERT_HAS_EXPIRED|SELF_SIGNED|DEPTH_ZERO|SSL/i.test(sslText);
       return new KaitenError(
         KaitenErrorType.NETWORK_ERROR,
         error.message || 'Network error occurred',
         undefined,
         { code: error.code },
         isSslError
-          ? 'SSL certificate error. Try KAITEN_INSECURE_SSL=true for self-signed/corporate proxy, or update ca-certificates in Docker'
+          ? config.KAITEN_INSECURE_SSL
+            ? 'SSL error persists despite KAITEN_INSECURE_SSL=true. Check your network/proxy or CA configuration.'
+            : 'SSL certificate error. Preferred fix: update ca-certificates (rebuild the Docker image). Last resort on a trusted network (self-signed/corporate proxy): set KAITEN_INSECURE_SSL=true'
           : 'Check your internet connection and API URL configuration'
       );
     }
