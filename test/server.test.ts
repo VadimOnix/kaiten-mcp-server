@@ -28,6 +28,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { KaitenError, KaitenErrorType } from '../src/kaiten-client.js';
 import { cache } from '../src/cache.js';
+import { TOOL_MAP } from '../src/tools/index.js';
 
 async function connect(): Promise<Client> {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
@@ -65,6 +66,15 @@ describe('protocol contract', () => {
       expect(t.name).toMatch(/^kaiten_/);
       expect((t.description ?? '').length).toBeGreaterThan(0);
       expect(t.inputSchema.type).toBe('object');
+    }
+  });
+
+  it('TOOL_MAP has exactly 22 entries and covers every advertised tool name', async () => {
+    expect(TOOL_MAP.size).toBe(22);
+    const client = await connect();
+    const { tools } = await client.listTools();
+    for (const t of tools) {
+      expect(TOOL_MAP.has(t.name), `TOOL_MAP missing entry for ${t.name}`).toBe(true);
     }
   });
 

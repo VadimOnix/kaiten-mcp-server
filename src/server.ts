@@ -11,51 +11,15 @@ import {
   ResourceTemplate,
   Prompt,
 } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { config, safeLog } from './config.js';
 import { cache } from './cache.js';
 import { logger } from './logging/index.js';
-import {
-  KaitenError,
-  CreateCardParams,
-  UpdateCardParams,
-} from './kaiten-client.js';
 import { client as kaitenClient, makeCtx } from './container.js';
 import { TOOL_MAP } from './tools/index.js';
-import {
-  GetCardSchema,
-  CreateCardSchema,
-  UpdateCardSchema,
-  DeleteCardSchema,
-  SearchCardsSchema,
-  GetCardCommentsSchema,
-  CreateCommentSchema,
-  UpdateCommentSchema,
-  DeleteCommentSchema,
-  ListBoardsSchema,
-  ListColumnsSchema,
-  ListLanesSchema,
-  ListTypesSchema,
-  ListUsersSchema,
-  GetCardChildrenSchema,
-  AddCardChildrenSchema,
-  RemoveCardChildrenSchema,
-  GetCardParentsSchema,
-  AddCardParentsSchema,
-  RemoveCardParentsSchema,
-} from './schemas.js';
-import {
-  truncateResponse,
-  applyCardVerbosity,
-  applyUserVerbosity,
-  applyBoardVerbosity,
-} from './utils.js';
+import { mapError } from './tools/kit.js';
 import {
   simplifyUser,
-  simplifySpace,
-  simplifyComment,
   simplifyCard,
-  simplifyCardCompact,
 } from './transformers.js';
 
 // Config is loaded and validated in config.ts
@@ -2390,94 +2354,8 @@ export function createServer(): Server {
     if (migrated) {
       return migrated.run(request.params.arguments ?? {}, makeCtx(extra?.signal));
     }
-
-    const { name, arguments: args } = request.params;
-    const signal = extra?.signal;
-
-    if (!args) {
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              error: {
-                type: 'MISSING_ARGUMENTS',
-                message: 'Missing arguments for tool call'
-              }
-            })
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    try {
-      switch (name) {
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
-    } catch (error: any) {
-      // Handle Zod validation errors
-      if (error instanceof z.ZodError) {
-        const formattedErrors = error.errors.map(err => ({
-          path: err.path.join('.'),
-          message: err.message,
-          code: err.code
-        }));
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({
-                error: {
-                  type: 'VALIDATION_ERROR',
-                  message: 'Invalid request parameters',
-                  details: formattedErrors
-                }
-              }, null, 2),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Handle Axios/API errors
-      if (error.response) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({
-                error: {
-                  type: 'API_ERROR',
-                  message: error.message || 'Kaiten API error',
-                  status: error.response.status,
-                  details: error.response.data
-                }
-              }, null, 2),
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Handle unknown errors
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              error: {
-                type: 'UNKNOWN_ERROR',
-                message: error.message || String(error)
-              }
-            }, null, 2),
-          },
-        ],
-        isError: true,
-      };
-    }
+    // unknown tool — reproduce the original default-branch behaviour via the shared error funnel
+    return mapError(new Error(`Unknown tool: ${request.params.name}`));
   });
 
   return server;
