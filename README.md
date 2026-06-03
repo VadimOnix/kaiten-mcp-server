@@ -117,16 +117,14 @@ npm run build
 Покажи список пространств Kaiten
 ```
 
-## Доступные инструменты (26 tools)
+## Доступные инструменты (16 tools)
 
 ### Карточки
 - `kaiten_get_card` - Получить карточку по ID **[format: json/markdown]**
 - `kaiten_create_card` - Создать новую карточку
 - `kaiten_update_card` - Обновить карточку
 - `kaiten_delete_card` - Удалить карточку
-- `kaiten_search_cards` - Поиск карточек с фильтрами **[verbosity: minimal/normal/detailed]**
-- `kaiten_get_space_cards` - Получить карточки пространства **[verbosity]**
-- `kaiten_get_board_cards` - Получить карточки доски **[verbosity]**
+- `kaiten_search_cards` - Поиск карточек с фильтрами (фильтрация по space_id/board_id заменяет отдельные списки) **[verbosity: minimal/normal/detailed]**
 
 ### Комментарии
 - `kaiten_get_card_comments` - Получить комментарии карточки
@@ -136,9 +134,7 @@ npm run build
 
 ### Пространства и доски
 - `kaiten_list_spaces` - Список всех пространств
-- `kaiten_get_space` - Получить пространство **[format: json/markdown]**
 - `kaiten_list_boards` - Список досок **[verbosity: minimal/normal/detailed]**
-- `kaiten_get_board` - Получить доску **[format: json/markdown]**
 
 ### Справочники (для корректных ID)
 - `kaiten_list_columns` - Список колонок (статусов) доски
@@ -149,13 +145,7 @@ npm run build
 - `kaiten_get_current_user` - Получить текущего пользователя
 - `kaiten_list_users` - Список пользователей **[verbosity: minimal/normal/detailed]**
 
-### Управление кешем и диагностика
-- `kaiten_cache_invalidate_spaces` - Инвалидировать кеш пространств
-- `kaiten_cache_invalidate_boards` - Инвалидировать кеш досок
-- `kaiten_cache_invalidate_users` - Инвалидировать кеш пользователей
-- `kaiten_cache_invalidate_all` - Инвалидировать весь кеш
-- `kaiten_get_status` - Получить статус сервера (кеш, очередь, конфигурация, логирование, метрики)
-- `kaiten_set_log_level` - Изменить конфигурацию логирования в runtime
+> Инструменты управления кешем и runtime-диагностики/логирования удалены: кеш истекает автоматически по TTL, а логирование настраивается через переменные окружения (`KAITEN_LOG_*`). Списки `get_space_cards`/`get_board_cards` и геттеры `get_space`/`get_board` убраны в пользу `kaiten_search_cards` и `kaiten_list_*`.
 
 ## Примеры использования
 

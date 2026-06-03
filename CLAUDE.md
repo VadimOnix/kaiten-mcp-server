@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an MCP (Model Context Protocol) server for Kaiten API integration. It provides 16 tools for managing Kaiten cards, comments, spaces, and boards directly from Claude Desktop. The server is production-ready with comprehensive logging, caching, retry logic, and concurrency control.
 
+The toolset was deliberately trimmed from 26 to 16: the cache-invalidation tools, runtime diagnostics/log-level tools, redundant card listings (`get_space_cards`/`get_board_cards`, superseded by `search_cards`), and detail getters (`get_space`/`get_board`) were removed. Logging is now configured only via environment variables, and the cache relies on automatic TTL expiry. Pure response-shaping helpers live in `src/transformers.ts`; the test suite (Vitest) lives in `test/` and is run with `npm test`.
+
 **Current Version:** 3.0.0
 
 ## Development Commands
@@ -26,9 +28,32 @@ npm run watch
 # Start compiled server
 npm start
 
+# Run the unit test suite (Vitest)
+npm test
+
+# Watch tests during TDD
+npm run test:watch
+
 # Test with MCP Inspector
 npm run inspector
 ```
+
+## Testing
+
+Unit tests live in `test/` and run on [Vitest](https://vitest.dev) via `npm test`.
+Required ENV vars are injected by `vitest.config.ts`, so no real `.env` is needed.
+
+Coverage targets the pure, deterministic layers that back the 16 tools:
+- `test/schemas.test.ts` — Zod input validation for every tool
+- `test/transformers.test.ts` — `src/transformers.ts` response simplifiers
+- `test/utils.test.ts` — verbosity control + response truncation
+- `test/cache.test.ts` — LRU cache get/set/TTL/invalidation
+- `test/config.test.ts` — `redactSecrets` + config loading
+- `test/kaiten-client.test.ts` — API client endpoints (axios mocked, p-queue real)
+
+When adding or changing a tool, follow TDD: write/adjust the test first, watch it
+fail, then implement. Keep response-shaping logic in `src/transformers.ts` (not
+inline in `src/index.ts`) so it stays unit-testable.
 
 ## MCP I/O Protocol Requirements
 
@@ -224,7 +249,7 @@ MCP Inspector provides:
 ## Key Files Reference
 
 - **CHANGELOG.md** - Complete version history with detailed changes
-- **TOOLS.md** - Full reference for all 26 tools
+- **TOOLS.md** - Full reference for all tools
 - **DEFAULT_SPACE_GUIDE.md** - Default space behavior documentation
 - **LOGGING_IMPLEMENTATION_PLAN.md** - v2.3.0 logging architecture
 - **.env.example** - All ENV variables with profiles

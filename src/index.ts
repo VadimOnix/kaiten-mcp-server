@@ -17,17 +17,11 @@ import {
 import { z } from 'zod';
 import { config, safeLog } from './config.js';
 import { cache } from './cache.js';
-import { logger, LogLevel } from './logging/index.js';
+import { logger } from './logging/index.js';
 import {
   KaitenClient,
   CreateCardParams,
   UpdateCardParams,
-  KaitenCard,
-  KaitenUser,
-  KaitenSpace,
-  KaitenBoard,
-  KaitenComment,
-  KaitenError,
 } from './kaiten-client.js';
 import {
   GetCardSchema,
@@ -35,28 +29,29 @@ import {
   UpdateCardSchema,
   DeleteCardSchema,
   SearchCardsSchema,
-  GetSpaceCardsSchema,
-  GetBoardCardsSchema,
   GetCardCommentsSchema,
   CreateCommentSchema,
   UpdateCommentSchema,
   DeleteCommentSchema,
-  GetSpaceSchema,
   ListBoardsSchema,
-  GetBoardSchema,
   ListColumnsSchema,
   ListLanesSchema,
   ListTypesSchema,
   ListUsersSchema,
-  SetLogLevelSchema,
 } from './schemas.js';
 import {
   truncateResponse,
   applyCardVerbosity,
   applyUserVerbosity,
   applyBoardVerbosity,
-  applyResponseFormat,
 } from './utils.js';
+import {
+  simplifyUser,
+  simplifySpace,
+  simplifyComment,
+  simplifyCard,
+  simplifyCardCompact,
+} from './transformers.js';
 
 // Config is loaded and validated in config.ts
 const API_URL = config.KAITEN_API_URL;
@@ -72,140 +67,6 @@ const kaitenClient = new KaitenClient(API_URL, API_TOKEN);
 
 // Initialize MCP logger (will be set when server is ready)
 const mcpLogger = logger.getMCPLogger();
-
-// ============================================
-// HELPER FUNCTIONS (IMPROVED TYPING)
-// ============================================
-
-function simplifyUser(user: KaitenUser) {
-  return {
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    username: user.username,
-    activated: user.activated
-  };
-}
-
-function simplifySpace(space: KaitenSpace) {
-  return {
-    id: space.id,
-    title: space.title,
-    archived: space.archived,
-    boards: space.boards?.map((b) => ({
-      id: b.id,
-      title: b.title
-    })) || []
-  };
-}
-
-function simplifyComment(comment: KaitenComment) {
-  return {
-    id: comment.id,
-    text: comment.text,
-    created: comment.created,
-    updated: comment.updated,
-    author_id: comment.author?.id,
-    author_name: comment.author?.full_name
-  };
-}
-
-interface SimplifiedCard {
-  id: number;
-  title: string;
-  url: string;
-  description: string | null;
-  created?: string;
-  updated?: string;
-  state?: number;
-  owner_id: number | null;
-  owner_name: string | null;
-  board_id?: number;
-  board_title: string | null;
-  column_id?: number;
-  column_title: string | null;
-  lane_id?: number;
-  lane_title: string | null;
-  type_id?: number;
-  type_name: string | null;
-  comments_total: number;
-  last_comment_date: string | null;
-  tags: string[];
-  members: string[];
-  asap: boolean;
-  blocked: boolean;
-  block_reason: string | null;
-  blocked_at: string | null;
-  blocker_name: string | null;
-  archived: boolean;
-  size: number | null;
-  due_date: string | null;
-}
-
-function simplifyCard(card: KaitenCard): SimplifiedCard {
-  const baseUrl = API_URL!.replace('/api/latest', '');
-  const spaceId = card.space_id || card.board?.space_id || DEFAULT_SPACE_ID || '';
-  const cardUrl = `${baseUrl}/space/${spaceId}/card/${card.id}`;
-
-  const blockInfo = card.blocked && card.blockers && card.blockers.length > 0
-    ? {
-        blocked: true,
-        block_reason: card.blockers[0].reason || null,
-        blocked_at: card.blockers[0].created || null,
-        blocker_name: card.blockers[0].blocker?.full_name || null
-      }
-    : { blocked: false, block_reason: null, blocked_at: null, blocker_name: null };
-
-  const lastCommentDate = card.comment_last_added_at || null;
-
-  return {
-    id: card.id,
-    title: card.title,
-    url: cardUrl,
-    description: card.description || null,
-    created: card.created,
-    updated: card.updated,
-    state: card.state,
-    owner_id: card.owner?.id || null,
-    owner_name: card.owner?.full_name || null,
-    board_id: card.board_id,
-    board_title: card.board?.title || null,
-    column_id: card.column_id,
-    column_title: card.column?.title || null,
-    lane_id: card.lane_id,
-    lane_title: card.lane?.title || null,
-    type_id: card.type_id,
-    type_name: card.type?.name || null,
-    comments_total: card.comments_total || 0,
-    last_comment_date: lastCommentDate,
-    tags: card.tags?.map((t) => t.name) || [],
-    members: card.members?.map((m) => m.full_name) || [],
-    asap: card.asap || false,
-    ...blockInfo,
-    archived: !!card.archived,
-    size: card.size || null,
-    due_date: card.due_date || null
-  };
-}
-
-// Compact version for search results - only essential fields
-function simplifyCardCompact(card: KaitenCard) {
-  const baseUrl = API_URL!.replace('/api/latest', '');
-  const spaceId = card.space_id || card.board?.space_id || DEFAULT_SPACE_ID || '';
-  const cardUrl = `${baseUrl}/space/${spaceId}/card/${card.id}`;
-
-  return {
-    id: card.id,
-    title: card.title,
-    url: cardUrl,
-    board_title: card.board?.title || null,
-    owner_name: card.owner?.full_name || null,
-    updated: card.updated,
-    asap: card.asap || false,
-    blocked: !!card.blocked,
-  };
-}
-
 
 // ============================================
 // RESOURCE TEMPLATES
@@ -323,7 +184,7 @@ USAGE EXAMPLES:
 ✅ DO: View blocking reasons before unblocking cards
 ❌ DON'T: Use for bulk operations - use kaiten_search_cards instead for finding multiple cards
 ❌ DON'T: Repeatedly fetch same card within 5-10 minutes - data doesn't change that frequently
-❌ DON'T: Use when you only need card list - use kaiten_get_board_cards or kaiten_search_cards (more efficient)
+❌ DON'T: Use when you only need card list - use kaiten_search_cards (more efficient)
 
 ERRORS:
 - NOT_FOUND (404): Card doesn't exist or was deleted. Verify card_id is correct. Check if card was archived (use kaiten_search_cards with condition=2).
@@ -340,8 +201,7 @@ SUBTASKS FEATURE:
 RELATED TOOLS:
 - kaiten_search_cards: Find cards before getting details (primary discovery tool)
 - kaiten_get_card_comments: Get full comment thread separately if needed
-- kaiten_update_card: Modify card after reviewing current state
-- kaiten_get_board_cards: List all cards from a board (when you need multiple cards)`,
+- kaiten_update_card: Modify card after reviewing current state`,
     annotations: {
       readOnly: true,
       destructive: false,
@@ -1297,7 +1157,6 @@ PERFORMANCE TIPS:
 
 RELATED TOOLS:
 - kaiten_get_card: Get full details for a specific card after finding it
-- kaiten_get_board_cards: Get all cards from a board without filters (faster for small boards)
 - kaiten_list_users: Find user_id before filtering by owner_id
 - kaiten_list_boards: Discover board_id for your space`,
     inputSchema: {
@@ -1451,106 +1310,6 @@ RELATED TOOLS:
     },
   },
   {
-    name: 'kaiten_get_space_cards',
-    description: `Get all cards from a specific space with pagination. Returns compact format optimized for context economy.
-
-PURPOSE: Retrieve cards from a space when you need all/recent cards without complex filtering. For filtered search, use kaiten_search_cards instead.
-
-PARAMETERS:
-- space_id (required): The space ID to get cards from
-- limit (optional): Max cards. Default: 10, max: 20
-- skip (optional): Skip N cards for pagination
-- condition (optional): 1=active (default), 2=archived
-- verbosity (optional): 'minimal' (ID+title), 'normal' (default, essential info), 'detailed' (full API response)
-
-VERBOSITY GUIDANCE:
-• Use 'minimal' when: Quick list of 15-20 cards, just need IDs to reference, preserving context
-• Use 'normal' when: Standard retrieval, need owner/board/status info - DEFAULT
-• Use 'detailed' when: Need all metadata, debugging, or analyzing card properties
-
-RETURNS: Human-readable markdown with card info (verbosity-controlled)
-
-USAGE EXAMPLES:
-✅ kaiten_get_space_cards({space_id: 123, limit: 15, verbosity: 'minimal'})
-✅ kaiten_get_space_cards({space_id: 123}) // normal verbosity by default`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        space_id: {
-          type: 'number',
-          description: 'Space ID',
-        },
-        limit: {
-          type: 'number',
-          description: 'Max cards (default 10, max 20)',
-        },
-        skip: {
-          type: 'number',
-          description: 'Skip for pagination',
-        },
-        condition: {
-          type: 'number',
-          description: '1=active (default), 2=archived',
-        },
-        verbosity: {
-          type: 'string',
-          description: 'Detail level: minimal (ID+title), normal (default), detailed (full)',
-        },
-      },
-      required: ['space_id'],
-    },
-  },
-  {
-    name: 'kaiten_get_board_cards',
-    description: `Get all cards from a specific board with pagination. Returns compact format optimized for context economy.
-
-PURPOSE: Retrieve cards from a board when you need all/recent cards without complex filtering. For filtered search, use kaiten_search_cards instead.
-
-PARAMETERS:
-- board_id (required): The board ID to get cards from
-- limit (optional): Max cards. Default: 10, max: 20
-- skip (optional): Skip N cards for pagination
-- condition (optional): 1=active (default), 2=archived
-- verbosity (optional): 'minimal' (ID+title), 'normal' (default, essential info), 'detailed' (full API response)
-
-VERBOSITY GUIDANCE:
-• Use 'minimal' when: Quick list of 15-20 cards, just need IDs, saving context tokens
-• Use 'normal' when: Standard retrieval, need owner/status info - DEFAULT
-• Use 'detailed' when: Need all metadata for analysis or debugging
-
-RETURNS: Human-readable markdown with card info (verbosity-controlled)
-
-USAGE EXAMPLES:
-✅ kaiten_get_board_cards({board_id: 456, limit: 20, verbosity: 'minimal'})
-✅ kaiten_get_board_cards({board_id: 456}) // normal verbosity by default`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        board_id: {
-          type: 'number',
-          description: 'Board ID',
-        },
-        limit: {
-          type: 'number',
-          description: 'Max cards (default 10, max 20)',
-        },
-        skip: {
-          type: 'number',
-          description: 'Skip for pagination',
-        },
-        condition: {
-          type: 'number',
-          description: '1=active (default), 2=archived',
-        },
-        verbosity: {
-          type: 'string',
-          description: 'Detail level: minimal (ID+title), normal (default), detailed (full)',
-        },
-      },
-      required: ['board_id'],
-    },
-  },
-  {
     name: 'kaiten_list_spaces',
     description: `List all Kaiten spaces (workspaces) accessible to your API token. Top-level organization structure.
 
@@ -1565,7 +1324,7 @@ RETURNS: Simplified JSON array of space objects:
 - archived: Boolean, true if space is archived
 - boards: Array of board objects in this space (basic info only)
 
-Cached for 300 seconds (5 minutes) for performance. Use kaiten_cache_invalidate_spaces to force refresh.
+Cached for 300 seconds (5 minutes) for performance; the cache expires automatically.
 
 USAGE EXAMPLES:
 ✅ DO: Discover spaces on first run:
@@ -1613,9 +1372,7 @@ SPACES vs BOARDS:
 CACHING:
 - Spaces list cached for 300 seconds (5 min) after first fetch
 - Reduces API calls, improves performance
-- Auto-expires after TTL
-- Force refresh: kaiten_cache_invalidate_spaces
-- Cache shared across operations (list_spaces, get_space)
+- Auto-expires after TTL (no manual refresh needed)
 
 DEFAULT SPACE BEHAVIOR:
 - If KAITEN_DEFAULT_SPACE_ID set: Most operations default to that space
@@ -1642,44 +1399,11 @@ Multi-workspace search:
   3. Aggregate results from all spaces
 
 RELATED TOOLS:
-- kaiten_get_space: Get detailed space info including full board list
 - kaiten_list_boards: List boards within a space (next step after list_spaces)
-- kaiten_search_cards: Set space_id=0 to search all spaces
-- kaiten_cache_invalidate_spaces: Force refresh cached spaces`,
+- kaiten_search_cards: Set space_id=0 to search all spaces`,
     inputSchema: {
       type: 'object',
       properties: {},
-    },
-  },
-  {
-    name: 'kaiten_get_space',
-    description: `Get space details by ID.
-
-PURPOSE: Retrieve comprehensive information about a specific Kaiten space.
-
-PARAMETERS:
-- space_id (required): Space ID. Positive integer.
-  How to find: Use kaiten_list_spaces to discover space_id
-- format (optional): Response format - 'json' or 'markdown' (default)
-  • Use 'json' when: Need structured data for programmatic processing, integrations, parsing
-  • Use 'markdown' when: Human-readable display with formatting, showing to user - DEFAULT
-
-RETURNS:
-- With format='markdown' (default): Human-readable markdown format with space details
-- With format='json': Full space object as JSON with all fields`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        space_id: {
-          type: 'number',
-          description: 'Space ID',
-        },
-        format: {
-          type: 'string',
-          description: 'Response format: json (structured), markdown (default, human-readable)',
-        },
-      },
-      required: ['space_id'],
     },
   },
   {
@@ -1702,7 +1426,7 @@ RETURNS: JSON array of board objects (verbosity-controlled) with:
 - space_id: Parent space ID
 - archived: Boolean indicating if board is archived
 
-Cached for 300 seconds (5 minutes) for performance. Use kaiten_cache_invalidate_boards if need fresh data.
+Cached for 300 seconds (5 minutes) for performance; the cache expires automatically.
 
 USAGE EXAMPLES:
 ✅ DO: List boards in default space: kaiten_list_boards() (no params)
@@ -1730,8 +1454,7 @@ ERRORS:
 CACHING:
 - Boards list is cached for 300 seconds (5 min) after first fetch
 - Reduces API calls and improves performance
-- Cache auto-expires, or force refresh with kaiten_cache_invalidate_boards
-- Cache shared across all operations (list_boards, get_board, etc.)
+- Cache auto-expires after TTL (no manual refresh needed)
 
 BOARD STRUCTURE DISCOVERY WORKFLOW:
 This is typically the first step in working with cards:
@@ -1744,12 +1467,10 @@ This is typically the first step in working with cards:
 
 RELATED TOOLS:
 - kaiten_list_spaces: Find space_id if not using default space
-- kaiten_get_board: Get detailed board info including settings
 - kaiten_list_columns: Get board columns (stages) for card placement
 - kaiten_list_lanes: Get board lanes (swimlanes)
 - kaiten_list_types: Get card types available on board
-- kaiten_search_cards: Search cards on specific board
-- kaiten_cache_invalidate_boards: Force refresh cached boards`,
+- kaiten_search_cards: Search cards on specific board`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -1762,37 +1483,6 @@ RELATED TOOLS:
           description: 'Detail level: minimal (ID+title), normal (default, space_id/archived), detailed (full)',
         },
       },
-    },
-  },
-  {
-    name: 'kaiten_get_board',
-    description: `Get board details by ID.
-
-PURPOSE: Retrieve comprehensive information about a specific Kaiten board.
-
-PARAMETERS:
-- board_id (required): Board ID. Positive integer.
-  How to find: Use kaiten_list_boards to discover board_id
-- format (optional): Response format - 'json' or 'markdown' (default)
-  • Use 'json' when: Need structured data for programmatic processing, integrations, parsing
-  • Use 'markdown' when: Human-readable display with formatting, showing to user - DEFAULT
-
-RETURNS:
-- With format='markdown' (default): Human-readable markdown format with board details
-- With format='json': Full board object as JSON with all fields`,
-    inputSchema: {
-      type: 'object',
-      properties: {
-        board_id: {
-          type: 'number',
-          description: 'Board ID',
-        },
-        format: {
-          type: 'string',
-          description: 'Response format: json (structured), markdown (default, human-readable)',
-        },
-      },
-      required: ['board_id'],
     },
   },
   {
@@ -2302,77 +1992,6 @@ RELATED TOOLS:
       },
     },
   },
-  {
-    name: 'kaiten_cache_invalidate_spaces',
-    description: 'Invalidate spaces cache',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'kaiten_cache_invalidate_boards',
-    description: 'Invalidate boards cache',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'kaiten_cache_invalidate_users',
-    description: 'Invalidate users cache',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'kaiten_cache_invalidate_all',
-    description: 'Invalidate all caches',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'kaiten_get_status',
-    description: 'Get server status (cache/queue/config/metrics)',
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  {
-    name: 'kaiten_set_log_level',
-    description: 'Change logging config at runtime',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        level: {
-          type: 'string',
-          enum: ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency', 'off'],
-          description: 'Log level',
-        },
-        enable_mcp_logs: {
-          type: 'boolean',
-          description: 'MCP logs on/off',
-        },
-        enable_file_logs: {
-          type: 'boolean',
-          description: 'File logs on/off',
-        },
-        enable_request_logs: {
-          type: 'boolean',
-          description: 'HTTP request logs on/off',
-        },
-        enable_metrics: {
-          type: 'boolean',
-          description: 'Metrics on/off',
-        },
-      },
-      required: ['level'],
-    },
-  },
 ];
 
 // ============================================
@@ -2382,7 +2001,7 @@ RELATED TOOLS:
 const server = new Server(
   {
     name: 'kaiten-mcp-server',
-    version: '2.3.0',
+    version: '3.0.0',
   },
   {
     capabilities: {
@@ -2940,106 +2559,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'kaiten_get_space_cards': {
-        const validatedArgs = GetSpaceCardsSchema.parse(args);
-        const condition = validatedArgs.condition !== undefined ? validatedArgs.condition : 1;
-        const cards = await kaitenClient.getCardsFromSpace(
-          validatedArgs.space_id,
-          validatedArgs.limit,
-          validatedArgs.skip,
-          condition,
-          signal
-        );
-
-        // Apply verbosity control
-        const verbosity = validatedArgs.verbosity || 'normal';
-        const processedCards = applyCardVerbosity(cards, verbosity, simplifyCardCompact);
-
-        // Human-readable format (similar to search)
-        let output = `Found ${cards.length} card(s) in space ${validatedArgs.space_id}\n`;
-        output += `Verbosity: ${verbosity}\n\n`;
-
-        // Format based on verbosity
-        if (verbosity === 'minimal') {
-          processedCards.forEach((card, index) => {
-            output += `${index + 1}. [${card.id}] ${card.title}\n`;
-          });
-        } else {
-          processedCards.forEach((card, index) => {
-            output += `${index + 1}. ${card.title}\n`;
-            output += `   📋 Board: ${card.board_title || 'N/A'}\n`;
-            output += `   👤 Owner: ${card.owner_name || 'Unassigned'}\n`;
-            if (card.asap) output += `   ⚡ ASAP\n`;
-            if (card.blocked) output += `   🚫 BLOCKED\n`;
-            output += `   🔗 ${card.url}\n`;
-            output += `   🕐 Updated: ${card.updated || 'N/A'}\n\n`;
-          });
-        }
-        output += `\nℹ️ Use kaiten_get_card for full details.`;
-
-        // Apply truncation
-        const finalOutput = truncateResponse(output);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: finalOutput,
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_get_board_cards': {
-        const validatedArgs = GetBoardCardsSchema.parse(args);
-        const condition = validatedArgs.condition !== undefined ? validatedArgs.condition : 1;
-        const cards = await kaitenClient.getCardsFromBoard(
-          validatedArgs.board_id,
-          validatedArgs.limit,
-          validatedArgs.skip,
-          condition,
-          signal
-        );
-
-        // Apply verbosity control
-        const verbosity = validatedArgs.verbosity || 'normal';
-        const processedCards = applyCardVerbosity(cards, verbosity, simplifyCardCompact);
-
-        // Human-readable format (similar to search)
-        let output = `Found ${cards.length} card(s) on board ${validatedArgs.board_id}\n`;
-        output += `Verbosity: ${verbosity}\n\n`;
-
-        // Format based on verbosity
-        if (verbosity === 'minimal') {
-          processedCards.forEach((card, index) => {
-            output += `${index + 1}. [${card.id}] ${card.title}\n`;
-          });
-        } else {
-          processedCards.forEach((card, index) => {
-            output += `${index + 1}. ${card.title}\n`;
-            output += `   📋 Board: ${card.board_title || 'N/A'}\n`;
-            output += `   👤 Owner: ${card.owner_name || 'Unassigned'}\n`;
-            if (card.asap) output += `   ⚡ ASAP\n`;
-            if (card.blocked) output += `   🚫 BLOCKED\n`;
-            output += `   🔗 ${card.url}\n`;
-            output += `   🕐 Updated: ${card.updated || 'N/A'}\n\n`;
-          });
-        }
-        output += `\nℹ️ Use kaiten_get_card for full details.`;
-
-        // Apply truncation
-        const finalOutput = truncateResponse(output);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: finalOutput,
-            },
-          ],
-        };
-      }
-
       case 'kaiten_list_spaces': {
         // Try cache first
         let spaces = cache.getSpaces();
@@ -3066,30 +2585,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text' as const,
               text: output,
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_get_space': {
-        const validatedArgs = GetSpaceSchema.parse(args);
-
-        // Try cache first
-        let space = cache.getSpace(validatedArgs.space_id);
-        if (!space) {
-          space = await kaitenClient.getSpace(validatedArgs.space_id, signal);
-          cache.setSpace(validatedArgs.space_id, space);
-        }
-
-        // Apply format parameter
-        const format = validatedArgs.format || 'markdown';
-        const response = applyResponseFormat(space, format, `Space: ${space.title}`);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: response,
             },
           ],
         };
@@ -3125,30 +2620,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: 'text' as const,
               text: output,
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_get_board': {
-        const validatedArgs = GetBoardSchema.parse(args);
-
-        // Try cache first
-        let board = cache.getBoard(validatedArgs.board_id);
-        if (!board) {
-          board = await kaitenClient.getBoard(validatedArgs.board_id, signal);
-          cache.setBoard(validatedArgs.board_id, board);
-        }
-
-        // Apply format parameter
-        const format = validatedArgs.format || 'markdown';
-        const response = applyResponseFormat(board, format, `Board: ${board.title}`);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: response,
             },
           ],
         };
@@ -3262,115 +2733,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case 'kaiten_cache_invalidate_spaces': {
-        cache.invalidateSpaces();
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ message: 'Spaces cache invalidated successfully' }, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_cache_invalidate_boards': {
-        cache.invalidateBoards();
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ message: 'Boards cache invalidated successfully' }, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_cache_invalidate_users': {
-        cache.invalidateUsers();
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ message: 'Users cache invalidated successfully' }, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_cache_invalidate_all': {
-        cache.invalidateAll();
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({ message: 'All caches invalidated successfully' }, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_get_status': {
-        const status = {
-          version: '2.3.0',
-          config: {
-            api_url: config.KAITEN_API_URL,
-            default_space_id: config.KAITEN_DEFAULT_SPACE_ID || null,
-            max_concurrent_requests: config.KAITEN_MAX_CONCURRENT_REQUESTS,
-            cache_ttl_seconds: config.KAITEN_CACHE_TTL_SECONDS,
-            request_timeout_ms: config.KAITEN_REQUEST_TIMEOUT_MS,
-          },
-          cache: cache.getStats(),
-          queue: kaitenClient.getQueueStatus(),
-          logging: logger.getConfig(),
-          metrics: logger.getMetrics(),
-        };
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify(status, null, 2),
-            },
-          ],
-        };
-      }
-
-      case 'kaiten_set_log_level': {
-        const validatedArgs = SetLogLevelSchema.parse(args);
-        const { level, enable_mcp_logs, enable_file_logs, enable_request_logs, enable_metrics } = validatedArgs;
-
-        const newConfig: any = {};
-
-        if (level === 'off') {
-          newConfig.enabled = false;
-        } else {
-          newConfig.enabled = true;
-          newConfig.level = level as LogLevel;
-        }
-
-        if (enable_mcp_logs !== undefined) newConfig.mcpEnabled = enable_mcp_logs;
-        if (enable_file_logs !== undefined) newConfig.fileEnabled = enable_file_logs;
-        if (enable_request_logs !== undefined) {
-          process.env.KAITEN_LOG_REQUESTS = enable_request_logs ? 'true' : 'false';
-        }
-        if (enable_metrics !== undefined) newConfig.metricsEnabled = enable_metrics;
-
-        logger.updateConfig(newConfig);
-
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({
-                message: 'Logging configuration updated successfully',
-                config: logger.getConfig(),
-              }, null, 2),
-            },
-          ],
-        };
-      }
-
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -3455,7 +2817,7 @@ async function main() {
   console.error('- Resources: Enabled (cards, spaces, boards)');
   console.error('- Prompts: Server prompt configured');
   console.error('- Validation: Zod schemas active');
-  console.error('- Logging: Runtime control available via kaiten_set_log_level');
+  console.error('- Logging: Configured via environment variables');
 }
 
 main().catch((error) => {
