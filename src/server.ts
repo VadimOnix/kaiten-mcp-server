@@ -20,7 +20,8 @@ import {
   CreateCardParams,
   UpdateCardParams,
 } from './kaiten-client.js';
-import { client as kaitenClient } from './container.js';
+import { client as kaitenClient, makeCtx } from './container.js';
+import { TOOL_MAP } from './tools/index.js';
 import {
   GetCardSchema,
   CreateCardSchema,
@@ -2384,9 +2385,14 @@ export function createServer(): Server {
   // TOOL EXECUTION HANDLER (WITH ZOD VALIDATION)
   // ============================================
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+    const migrated = TOOL_MAP.get(request.params.name);
+    if (migrated) {
+      return migrated.run(request.params.arguments ?? {}, makeCtx(extra?.signal));
+    }
+
     const { name, arguments: args } = request.params;
-    const signal = (request as any)._meta?.signal; // Extract AbortSignal from request context
+    const signal = extra?.signal;
 
     if (!args) {
       return {
