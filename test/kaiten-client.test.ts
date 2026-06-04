@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createRequire } from 'module';
 import { installFetchMock, jsonResponse } from './helpers/fetch-mock';
 import { KaitenClient, KaitenError, KaitenErrorType } from '../src/kaiten-client';
 
@@ -246,5 +247,21 @@ describe('getQueueStatus', () => {
     expect(status).toHaveProperty('pending');
     expect(status).toHaveProperty('size');
     expect(status).toHaveProperty('concurrency');
+  });
+});
+
+describe('User-Agent header', () => {
+  // Read the real package version the same way the client does.
+  const require = createRequire(import.meta.url);
+  const pkg = require('../package.json') as { version: string };
+
+  it('reports the current package version and the real repo URL', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1 }));
+    await client.getCard(1);
+    const ua = (call()[1].headers as Record<string, string>)['User-Agent'];
+    expect(ua).toBe(`mcp-kaiten/${pkg.version} (+https://github.com/VadimOnix/kaiten-mcp-server)`);
+    // Guards against regressing to the old hardcoded placeholders.
+    expect(ua).not.toContain('yourusername');
+    expect(ua).not.toContain('2.2.0');
   });
 });
