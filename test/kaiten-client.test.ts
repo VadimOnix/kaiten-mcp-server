@@ -323,4 +323,11 @@ describe('card member operations', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(call(1)[1].method).toBe('PATCH');
   });
+
+  it('setCardResponsible does NOT swallow an auth error from the add call', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: 'Unauthorized' }, { status: 401 }));
+    await expect(client.setCardResponsible(5, 7)).rejects.toMatchObject({ type: 'AUTH_ERROR' });
+    // add failed with auth -> we must NOT have proceeded to the PATCH
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

@@ -695,8 +695,12 @@ export class KaitenClient {
     // proceed. A genuinely invalid card/user surfaces on the PATCH below.
     try {
       await this.addCardMember(cardId, userId, signal);
-    } catch {
-      // already a member (or add not required) — continue to set the role
+    } catch (err) {
+      // "Already a member" is expected — proceed to set the role. But never mask
+      // an auth failure behind a second doomed request.
+      if (err instanceof KaitenError && err.type === KaitenErrorType.AUTH_ERROR) {
+        throw err;
+      }
     }
     return this.queuedRequest(
       () => this.request<KaitenMemberRole>(`/cards/${cardId}/members/${userId}`, { method: 'PATCH', body: { type: 2 }, signal }),
