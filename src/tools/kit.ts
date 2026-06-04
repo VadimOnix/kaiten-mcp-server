@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { KaitenError } from '../kaiten-client.js';
 import type { KaitenClient } from '../kaiten-client.js';
 import type { KaitenCache } from '../cache.js';
 import type { EnvConfig } from '../config.js';
@@ -108,14 +109,18 @@ export function defineTool<S extends z.ZodObject<z.ZodRawShape>>(spec: {
  * so the characterization snapshots in `test/server.test.ts` keep passing when
  * tools migrate onto this seam.
  *
- * Branch order (identical to the original):
+ * Branch order:
  *   1. z.ZodError      -> VALIDATION_ERROR { message, details:[{path,message,code}] }
- *   2. err.response     -> API_ERROR        { message, status, details }
- *   3. anything else    -> UNKNOWN_ERROR    { message }
+ *   2. KaitenError      -> rich envelope    { type, message, status, details, hint }
+ *   3. err.response     -> API_ERROR        { message, status, details }
+ *   4. anything else    -> UNKNOWN_ERROR    { message }
  *
- * Notably, a KaitenError is NEITHER a ZodError NOR does it carry `.response`,
- * so it falls through to UNKNOWN_ERROR — it is NOT special-cased via toJSON().
- * Every branch emits `JSON.stringify(..., null, 2)` and sets `isError: true`.
+ * A categorized {@link KaitenError} (thrown by the client's axios interceptor)
+ * is surfaced via its `toJSON()` so the MCP client receives the error type, the
+ * HTTP status and the actionable `hint` — instead of collapsing to a generic
+ * UNKNOWN_ERROR that discards them. (Previously KaitenError carried neither a
+ * `.response` nor was a ZodError, so it fell through to UNKNOWN_ERROR.) Every
+ * branch emits `JSON.stringify(..., null, 2)` and sets `isError: true`.
  */
 export function mapError(err: unknown): ToolResult {
   const error = err as any;
@@ -143,6 +148,20 @@ export function mapError(err: unknown): ToolResult {
             null,
             2,
           ),
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  // Handle categorized Kaiten client errors — surface the full envelope
+  // (type/status/details/hint) via toJSON instead of a generic UNKNOWN_ERROR.
+  if (error instanceof KaitenError) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: error.toJSON() }, null, 2),
         },
       ],
       isError: true,

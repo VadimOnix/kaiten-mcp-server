@@ -230,13 +230,22 @@ describe('defineTool wrap logic', () => {
       },
     });
     const res = await tool.run({}, ctx);
-    // KaitenError is neither a ZodError nor has .response => UNKNOWN_ERROR branch.
+    // KaitenError is surfaced richly via its toJSON() — the categorized type,
+    // HTTP status, details and actionable hint all reach the MCP client.
     expect(res).toEqual({
       content: [
         {
           type: 'text',
           text: JSON.stringify(
-            { error: { type: 'UNKNOWN_ERROR', message: 'Resource not found' } },
+            {
+              error: {
+                type: 'NOT_FOUND',
+                message: 'Resource not found',
+                status: 404,
+                details: {},
+                hint: 'hint',
+              },
+            },
             null,
             2,
           ),
@@ -327,7 +336,7 @@ describe('mapError parity with the real CallTool catch block', () => {
     expect(parsed.error.details).toEqual({ invalid: true });
   });
 
-  it('KaitenError -> UNKNOWN_ERROR branch (NOT the toJSON flat shape the plan assumed)', () => {
+  it('KaitenError -> nested rich envelope via toJSON (type/status/details/hint preserved)', () => {
     const err = new KaitenError(
       KaitenErrorType.NOT_FOUND,
       'Resource not found',
@@ -338,15 +347,23 @@ describe('mapError parity with the real CallTool catch block', () => {
 
     const res = mapError(err);
 
-    // Real catch block: KaitenError has no .response and is not a ZodError, so
-    // it lands in UNKNOWN_ERROR with ONLY { type, message }. No status, no
-    // hint, no details, and crucially NOT a flat { error: 'NOT_FOUND' }.
+    // A categorized KaitenError is surfaced via error.toJSON(), so the client
+    // gets the type, HTTP status, details and actionable hint — not a generic
+    // UNKNOWN_ERROR that discards them.
     expect(res).toEqual({
       content: [
         {
           type: 'text',
           text: JSON.stringify(
-            { error: { type: 'UNKNOWN_ERROR', message: 'Resource not found' } },
+            {
+              error: {
+                type: 'NOT_FOUND',
+                message: 'Resource not found',
+                status: 404,
+                details: {},
+                hint: 'Check that the card_id, board_id, space_id, or other resource ID is correct',
+              },
+            },
             null,
             2,
           ),
@@ -355,14 +372,14 @@ describe('mapError parity with the real CallTool catch block', () => {
       isError: true,
     });
 
-    // Guard the byte-stability snapshot expectation in test/server.test.ts,
-    // which asserts /NOT_FOUND|not found/i against this exact text.
+    // Snapshot in test/server.test.ts asserts /NOT_FOUND|not found/i against this text.
     expect(res.content[0].text).toMatch(/NOT_FOUND|not found/i);
-    // And explicitly: the result is NOT the flat toJSON shape.
     const parsed = JSON.parse(res.content[0].text);
-    expect(parsed.error.type).toBe('UNKNOWN_ERROR');
-    expect(parsed.error.hint).toBeUndefined();
-    expect(parsed.error.status).toBeUndefined();
+    expect(parsed.error.type).toBe('NOT_FOUND');
+    expect(parsed.error.status).toBe(404);
+    expect(parsed.error.hint).toBe(
+      'Check that the card_id, board_id, space_id, or other resource ID is correct',
+    );
   });
 
   it('plain Error -> UNKNOWN_ERROR using error.message', () => {
