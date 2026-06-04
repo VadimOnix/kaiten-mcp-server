@@ -265,3 +265,62 @@ describe('User-Agent header', () => {
     expect(ua).not.toContain('2.2.0');
   });
 });
+
+describe('card member operations', () => {
+  it('getCardMembers GETs /cards/:id/members', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 7, full_name: 'Ann', type: 2 }]),
+    );
+    const members = await client.getCardMembers(5);
+    expect(members).toEqual([{ id: 7, full_name: 'Ann', type: 2 }]);
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/members`);
+    expect((init.method ?? 'GET').toUpperCase()).toBe('GET');
+  });
+
+  it('addCardMember POSTs /cards/:id/members with { user_id }', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 7, full_name: 'Ann' }));
+    const res = await client.addCardMember(5, 7);
+    expect(res).toEqual({ id: 7, full_name: 'Ann' });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/members`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ user_id: 7 });
+  });
+
+  it('removeCardMember DELETEs /cards/:id/members/:userId', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 7 }));
+    const res = await client.removeCardMember(5, 7);
+    expect(res).toEqual({ id: 7 });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/members/7`);
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('setCardResponsible POSTs then PATCHes { type: 2 }', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ id: 7, full_name: 'Ann' })) // add
+      .mockResolvedValueOnce(jsonResponse({ card_id: 5, user_id: 7, type: 2 })); // patch
+    const res = await client.setCardResponsible(5, 7);
+    expect(res).toEqual({ card_id: 5, user_id: 7, type: 2 });
+
+    const [addUrl, addInit] = call(0);
+    expect(addUrl).toBe(`${BASE}/cards/5/members`);
+    expect(addInit.method).toBe('POST');
+
+    const [patchUrl, patchInit] = call(1);
+    expect(patchUrl).toBe(`${BASE}/cards/5/members/7`);
+    expect(patchInit.method).toBe('PATCH');
+    expect(JSON.parse(patchInit.body as string)).toEqual({ type: 2 });
+  });
+
+  it('setCardResponsible swallows an add error (already a member) and still PATCHes', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ message: 'already a member' }, { status: 409 })) // add fails (409 not retried)
+      .mockResolvedValueOnce(jsonResponse({ card_id: 5, user_id: 7, type: 2 })); // patch
+    const res = await client.setCardResponsible(5, 7);
+    expect(res).toEqual({ card_id: 5, user_id: 7, type: 2 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(call(1)[1].method).toBe('PATCH');
+  });
+});

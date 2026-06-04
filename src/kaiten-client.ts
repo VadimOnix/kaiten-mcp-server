@@ -140,6 +140,19 @@ export interface KaitenComment {
   updated?: string;
 }
 
+export interface KaitenMember extends KaitenUser {
+  /** Role on the card: 1 = participant (участник), 2 = responsible (ответственный). */
+  type?: number;
+}
+
+export interface KaitenMemberRole {
+  created?: string;
+  updated?: string;
+  card_id: number;
+  user_id: number;
+  type: number;
+}
+
 export interface KaitenSpace {
   id: number;
   title: string;
@@ -653,6 +666,40 @@ export class KaitenClient {
   async removeCardParent(cardId: number, parentCardId: number, signal?: AbortSignal): Promise<{ id: number }> {
     return this.queuedRequest(
       () => this.request<{ id: number }>(`/cards/${cardId}/parents/${parentCardId}`, { method: 'DELETE', signal }),
+      signal,
+    );
+  }
+
+  // Card member operations
+  async getCardMembers(cardId: number, signal?: AbortSignal): Promise<KaitenMember[]> {
+    return this.queuedRequest(() => this.request<KaitenMember[]>(`/cards/${cardId}/members`, { signal }), signal);
+  }
+
+  async addCardMember(cardId: number, userId: number, signal?: AbortSignal): Promise<KaitenMember> {
+    return this.queuedRequest(
+      () => this.request<KaitenMember>(`/cards/${cardId}/members`, { method: 'POST', body: { user_id: userId }, signal }),
+      signal,
+    );
+  }
+
+  async removeCardMember(cardId: number, userId: number, signal?: AbortSignal): Promise<{ id: number }> {
+    return this.queuedRequest(
+      () => this.request<{ id: number }>(`/cards/${cardId}/members/${userId}`, { method: 'DELETE', signal }),
+      signal,
+    );
+  }
+
+  async setCardResponsible(cardId: number, userId: number, signal?: AbortSignal): Promise<KaitenMemberRole> {
+    // The PATCH role endpoint only works on existing members. Ensure membership
+    // first; if the user is already a member the add call errors — swallow it and
+    // proceed. A genuinely invalid card/user surfaces on the PATCH below.
+    try {
+      await this.addCardMember(cardId, userId, signal);
+    } catch {
+      // already a member (or add not required) — continue to set the role
+    }
+    return this.queuedRequest(
+      () => this.request<KaitenMemberRole>(`/cards/${cardId}/members/${userId}`, { method: 'PATCH', body: { type: 2 }, signal }),
       signal,
     );
   }
