@@ -74,6 +74,32 @@ describe('kaiten_search_cards tool module', () => {
     expect(res.content[0].text).toContain('1. [7] Found Card');
   });
 
+  it('renders detailed verbosity from raw cards without N/A or undefined fields', async () => {
+    // Detailed verbosity passes RAW cards (nested board/owner objects, no
+    // derived board_title/owner_name/url). The summary must read those nested
+    // fields rather than emit "N/A"/"Unassigned"/"🔗 undefined".
+    const rawCard = {
+      id: 7,
+      title: 'Raw Card',
+      board: { title: 'Board A' },
+      owner: { full_name: 'Ivan Petrov' },
+      updated: '2026-02-01T10:00:00Z',
+    };
+    const searchCardsFn = vi.fn().mockResolvedValue([rawCard]);
+    const res = await searchCards.run(
+      { board_id: 3, verbosity: 'detailed' },
+      fakeCtx({ client: { searchCards: searchCardsFn } }),
+    );
+    const text = res.content[0].text;
+    expect(text).toContain('Verbosity: detailed');
+    expect(text).toContain('1. Raw Card');
+    expect(text).toContain('📋 Board: Board A');
+    expect(text).toContain('👤 Owner: Ivan Petrov');
+    expect(text).not.toContain('N/A');
+    expect(text).not.toContain('Unassigned');
+    expect(text).not.toContain('undefined');
+  });
+
   it('maps a thrown error', async () => {
     const searchCardsFn = vi.fn().mockRejectedValue(new Error('boom'));
     const res = await searchCards.run(

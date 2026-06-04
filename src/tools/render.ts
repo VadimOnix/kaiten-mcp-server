@@ -161,14 +161,24 @@ export function renderSearchSummary(
       summary += `${index + 1}. [${card.id}] ${card.title}\n`;
     });
   } else {
-    // Normal/detailed: include more details
+    // Normal/detailed: include more details.
+    //
+    // `normal` verbosity passes SIMPLIFIED cards (carrying the derived
+    // board_title/owner_name/url). `detailed` verbosity passes RAW API cards
+    // (nested board/owner objects, no derived fields, no url). Read both shapes
+    // so detailed no longer renders "N/A"/"Unassigned"/"🔗 undefined"; for
+    // simplified cards the `??` fallbacks never trigger and the `url` is always
+    // present, so the normal output stays byte-identical.
     processed.forEach((card, index) => {
+      const boardTitle = card.board_title ?? card.board?.title;
+      const ownerName = card.owner_name ?? card.owner?.full_name;
+      const url = card.url;
       summary += `${index + 1}. ${card.title}\n`;
-      summary += `   📋 Board: ${card.board_title || 'N/A'}\n`;
-      summary += `   👤 Owner: ${card.owner_name || 'Unassigned'}\n`;
+      summary += `   📋 Board: ${boardTitle || 'N/A'}\n`;
+      summary += `   👤 Owner: ${ownerName || 'Unassigned'}\n`;
       if (card.asap) summary += `   ⚡ ASAP\n`;
       if (card.blocked) summary += `   🚫 BLOCKED\n`;
-      summary += `   🔗 ${card.url}\n`;
+      if (url) summary += `   🔗 ${url}\n`;
       summary += `   🕐 Updated: ${card.updated || 'N/A'}\n\n`;
     });
   }
