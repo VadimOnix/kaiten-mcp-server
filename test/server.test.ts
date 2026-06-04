@@ -69,6 +69,18 @@ describe('protocol contract', () => {
     });
   });
 
+  // P0 context-footprint fix: cross-tool usage rules (default space, Russian
+  // root-word search, LATIN-only user names) are consolidated ONCE into the
+  // server `instructions` (sent at initialize) instead of being duplicated
+  // across the per-tool descriptions. The client exposes them via getInstructions().
+  it('advertises server instructions carrying the key usage rules', async () => {
+    const client = await connect();
+    const instructions = client.getInstructions() ?? '';
+    expect(instructions.length).toBeGreaterThan(0);
+    expect(instructions).toMatch(/LATIN/i);          // user-name transliteration rule
+    expect(instructions.toLowerCase()).toContain('root'); // Russian root-word search rule
+  });
+
   // Schema-fidelity guard for the Zod -> JSON-Schema derivation done by
   // McpServer.registerTool (Task 12). Asserts the properties the SPIKE confirmed
   // the SDK (v1.29.0) actually produces from a tool's `schema.shape`:
@@ -205,7 +217,12 @@ describe('resources + prompts (migrated to McpServer.server handlers)', () => {
 
     const got = await client.getPrompt({ name: 'kaiten-server-prompt' });
     expect(got.messages[0].role).toBe('user');
-    expect((got.messages[0].content as { text: string }).text).toContain('Kaiten project management MCP server');
+    // The prompt body reuses the consolidated server instructions (single source),
+    // so it carries the cross-tool rules rather than the old standalone blurb.
+    const text = (got.messages[0].content as { text: string }).text;
+    expect(text).toMatch(/Kaiten MCP server/);
+    expect(text).toContain('kaiten_search_cards');
+    expect(text).toMatch(/LATIN/i);
   });
 });
 

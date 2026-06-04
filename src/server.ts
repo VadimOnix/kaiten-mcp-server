@@ -70,33 +70,23 @@ const kaitenServerPrompt: Prompt = {
   arguments: [],
 };
 
-const kaitenServerPromptInstructions = `Kaiten project management MCP server - manage cards, spaces, boards, comments.
+// Cross-tool usage rules, consolidated ONCE here (P0 context-footprint fix).
+// Advertised via the server `instructions` (sent at initialize, so every client
+// sees them) AND reused as the prompt body. This is the single home for the
+// functional Cyrillic the per-tool descriptions used to duplicate: the Russian
+// root-word search rule and the Cyrillic→Latin user-name transliteration table.
+const kaitenServerInstructions = `Kaiten MCP server — manage cards, comments, spaces, boards, and card members.
 
-CRITICAL Performance Rules:
-• kaiten_search_cards: ALWAYS use space_id or board_id filter (omit space_id=default, space_id=0=ALL spaces=SLOW)
-• kaiten_list_users: ALWAYS use query parameter (Latin names: "Saranyuk" not "Саранюк")
-• Keep limit≤20 when possible to preserve context
+Default space: most operations use KAITEN_DEFAULT_SPACE_ID automatically. Pass space_id only to override; space_id=0 means ALL spaces (slow).
 
-Search Strategy:
-• Default: searches configured default space with limit=10
-• Use query for text search (partial match in title/description/comments)
-• CRITICAL Russian search: Use root words for inflected forms (Болгарии/Болгария/болгарский → болгар, валюты/валютный → валют)
-• Add board_id to narrow results
-• condition: 1=active (default), 2=archived (only when requested)
-• Returns compact format - use kaiten_get_card for full details
+Searching cards (kaiten_search_cards):
+• Narrow with board_id (or rely on the default space) and keep limit ≤20 to protect context.
+• Russian card text is inflected — search by WORD ROOT, not the full form: "болгар" matches "Болгарии"/"болгарский"; "валют" matches "валюты"/"валютный".
+• condition: 1=active (default), 2=archived (only when asked). Returns compact rows — use kaiten_get_card for full detail.
 
-Card Operations:
-• Create: title + board_id required. Find board_id via kaiten_list_boards
-• Update: only include fields to change
-• Assign: find user via kaiten_list_users(query="name"), use their ID in owner_id
-• Comments: support markdown, appear in card history
+Finding users (kaiten_list_users): ALWAYS pass query — never call it bare (it dumps up to 100 users). Kaiten stores names in LATIN only, so transliterate Cyrillic first: Владимир→Vladimir/Vlad, Саранюк→Saranyuk, Алексей→Aleksey/Alex, Сергей→Sergey/Sergei, Юлия→Yulia/Julia.
 
-Users:
-• CRITICAL: Kaiten stores LATIN names only
-• Search: kaiten_list_users(query="latin_name")
-• NEVER call without query - returns ALL users, wastes tokens
-
-Default Space: Most operations auto-use KAITEN_DEFAULT_SPACE_ID unless specified.`;
+Cards: create needs title + board_id (discover IDs via kaiten_list_boards/columns/lanes/types); update only the fields you change; assign by passing the user's id as owner_id. Comments support markdown and are visible to everyone.`;
 
 
 // ============================================
@@ -115,6 +105,9 @@ export function createServer(): McpServer {
       version: VERSION,
     },
     {
+      // Cross-tool usage rules are sent to the client at initialize, so they
+      // no longer need to be duplicated inside every tool description.
+      instructions: kaitenServerInstructions,
       capabilities: {
         tools: {},
         resources: {
@@ -270,7 +263,7 @@ export function createServer(): McpServer {
             role: "user" as const,
             content: {
               type: "text" as const,
-              text: kaitenServerPromptInstructions
+              text: kaitenServerInstructions
             }
           }
         ]

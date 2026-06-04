@@ -50,4 +50,23 @@ describe('kaiten_get_card tool module', () => {
     expect(getCard.annotations.readOnly).toBe(true);
     expect(getCard.description.length).toBeGreaterThan(0);
   });
+
+  // P0 context-footprint fix (see memory: context-footprint-audit). The
+  // description is advertised to every client on connect, so it must be a short
+  // high-signal blurb — NOT a multi-section manual that re-documents the Zod
+  // schema params and repeats the server instructions.
+  it('advertises a context-efficient description (concise, no embedded manual, keeps routing signal)', () => {
+    // Concise: a dramatic cut from the original ~7,935-char manual.
+    expect(getCard.description.length).toBeLessThanOrEqual(600);
+
+    // No embedded per-tool manual sections (these duplicate schema .describe()
+    // and the server-level instructions, so they double-bill tokens).
+    for (const marker of ['PARAMETERS:', 'USAGE EXAMPLES:', 'ERRORS:', "❌ DON'T", 'RELATED TOOLS:']) {
+      expect(getCard.description).not.toContain(marker);
+    }
+
+    // …but still carries the routing signal an agent needs to pick + chain it.
+    expect(getCard.description).toContain('kaiten_search_cards');
+    expect(getCard.description.toLowerCase()).toContain('subtask');
+  });
 });

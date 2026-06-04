@@ -13,22 +13,7 @@ RELATED TOOLS:
 - kaiten_remove_card_members: Remove members
 - kaiten_set_card_responsible: Mark a member responsible`;
 
-export const ADD_CARD_MEMBERS_DESC = `Add one or more participants (участники) to a card.
-
-PURPOSE: Attach existing users as card members. Accepts an array of user IDs; the server issues one API call per user and continues on individual failures. New members join as participants (type 1).
-
-PARAMETERS:
-- card_id (required): Card ID. Positive integer.
-- user_ids (required): Array of user IDs to add. At least one.
-
-RETURNS: JSON summary { card_id, succeeded: number[], failed: [{ user_id, error }], summary }.
-
-NOTE: Adding is idempotent — re-adding an existing member does not create duplicates.
-
-RELATED TOOLS:
-- kaiten_get_card_members: List current members
-- kaiten_set_card_responsible: Mark a member responsible
-- kaiten_remove_card_members: Remove members`;
+export const ADD_CARD_MEMBERS_DESC = `Add one or more participants to a card. Required: card_id and user_ids (array of user IDs, at least one). New members join as participants (type 1). The server makes one API call per user and continues on individual failures, returning { card_id, succeeded, failed, summary }. Idempotent — re-adding an existing member creates no duplicates. Find user IDs via kaiten_list_users; see current members via kaiten_get_card_members.`;
 
 export const REMOVE_CARD_MEMBERS_DESC = `Remove one or more members from a card.
 
@@ -44,19 +29,4 @@ RELATED TOOLS:
 - kaiten_get_card_members: List current members to find IDs
 - kaiten_add_card_members: Add participants`;
 
-export const SET_CARD_RESPONSIBLE_DESC = `Mark a user as responsible (ответственный) for a card.
-
-PURPOSE: Make a user the responsible person on a card. If they are not already a member they are added automatically first, then promoted to responsible (type 2).
-
-PARAMETERS:
-- card_id (required): Card ID. Positive integer.
-- user_id (required): User ID to mark responsible.
-
-RETURNS: JSON { card_id, user_id, type } with type 2 (responsible).
-
-NOTE: This is additive — it does NOT demote any existing responsible member (Kaiten allows several). The Kaiten API cannot demote a responsible back to a plain participant; to unassign, use kaiten_remove_card_members (removes them from the card entirely).
-
-RELATED TOOLS:
-- kaiten_get_card_members: See who is responsible (type 2)
-- kaiten_add_card_members: Add participants
-- kaiten_remove_card_members: Remove a member / unassign responsible`;
+export const SET_CARD_RESPONSIBLE_DESC = `Mark a user as responsible (type 2) for a card. Required: card_id and user_id. If the user is not already a member they are added first, then promoted. Returns { card_id, user_id, type }. Additive — it does NOT demote existing responsible members (Kaiten allows several), and the API cannot demote a responsible back to a plain participant; to unassign, use kaiten_remove_card_members (removes them from the card entirely). Find user IDs via kaiten_list_users; see current roles via kaiten_get_card_members.`;

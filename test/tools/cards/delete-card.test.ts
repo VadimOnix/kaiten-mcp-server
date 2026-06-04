@@ -38,4 +38,26 @@ describe('kaiten_delete_card tool module', () => {
     expect(deleteCard.annotations.destructive).toBe(true);
     expect(deleteCard.description.length).toBeGreaterThan(0);
   });
+
+  // P0 context-footprint fix (see memory: context-footprint-audit). Even for a
+  // destructive tool the description must stay a short high-signal blurb: the
+  // destructive nature is already flagged via annotations.destructive, so the
+  // description carries only the irreversibility + safer-alternative signal, not
+  // a multi-section safety manual that double-bills tokens on every connect.
+  it('advertises a context-efficient description (concise, no embedded manual, keeps destructive signal)', () => {
+    // Concise: a dramatic cut from the original ~4,146-char safety manual.
+    expect(deleteCard.description.length).toBeLessThanOrEqual(600);
+
+    // No embedded per-tool manual sections.
+    for (const marker of [
+      'PARAMETERS:', 'USAGE EXAMPLES:', 'ERRORS:', "❌ DON'T",
+      'RELATED TOOLS:', 'SAFER ALTERNATIVES:', 'DELETION WORKFLOW',
+    ]) {
+      expect(deleteCard.description).not.toContain(marker);
+    }
+
+    // …but still carries the high-signal warning: irreversible + prefer archiving.
+    expect(deleteCard.description.toLowerCase()).toContain('archiv');
+    expect(deleteCard.description.toLowerCase()).toMatch(/irreversible|cannot be undone|no undo/);
+  });
 });
