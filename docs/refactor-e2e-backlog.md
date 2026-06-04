@@ -15,7 +15,7 @@
 | P1 idempotency_key | ✅ FIXED | `src/tools/cards/{create,update}-card.ts` форвардят `idempotency_key` |
 | P2 detailed search | ✅ FIXED | `src/tools/render.ts` — `renderSearchSummary` устойчив к сырым карточкам |
 | P3 канал ошибок | ✅ documented | README §«Обработка ошибок» — два канала (`-32602` vs `isError`) |
-| P3 Node-версия | 📝 DX | предложен `.nvmrc` |
+| P3 Node-версия | ✅ DX | `.nvmrc` (`lts/*`) влит в main |
 
 Реконсиляция с native-fetch: ветка перенесена на main (v3.3.0, fetch вместо axios);
 мои файлы fetch-рефактором не затронуты, фиксы применились чисто.
