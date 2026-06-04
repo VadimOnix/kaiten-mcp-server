@@ -216,7 +216,7 @@ export const ListBoardsSchema = z.object({
 }).strict();
 
 // ============================================
-// BOARD СПРАВОЧНИКИ (COLUMNS, LANES, TYPES)
+// BOARD REFERENCE DATA (COLUMNS, LANES, TYPES)
 // ============================================
 
 export const ListColumnsSchema = z.object({

@@ -10,4 +10,4 @@ export const CREATE_COMMENT_DESC = `Add a comment to a card. Required: card_id a
 
 export const UPDATE_COMMENT_DESC = `Edit an existing comment; the new text fully REPLACES the old (not append/prepend), so to add to it, fetch the current text first and resend combined. Required: card_id, comment_id, text (markdown). Optional idempotency_key. You can edit ONLY your own comments — editing another user's returns 403 (find comment_id and author_id via kaiten_get_card_comments; your own id via kaiten_get_current_user). Preserves id and created, bumps the updated timestamp. Returns the updated comment.`;
 
-export const DELETE_COMMENT_DESC = 'Delete comment';
+export const DELETE_COMMENT_DESC = `Permanently delete a comment from a card. Required: card_id and comment_id (get the comment_id from kaiten_get_card_comments). Irreversible — the comment is removed for everyone with no undo, and you can generally delete only your own comments. To reword a comment instead of removing it, use kaiten_update_comment.`;
