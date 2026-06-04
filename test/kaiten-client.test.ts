@@ -1,35 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-// ---- Mock the HTTP layer ----------------------------------------------------
-// KaitenClient builds its own axios instance internally, so we replace
-// axios.create() with a controllable fake and stub axios-retry to a no-op.
-// p-queue is left real (it simply runs the queued task).
-const { mockAxiosInstance } = vi.hoisted(() => ({
-  mockAxiosInstance: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-    interceptors: {
-      request: { use: vi.fn() },
-      response: { use: vi.fn() },
-    },
-  },
-}));
-
-vi.mock('axios', () => ({
-  default: { create: vi.fn(() => mockAxiosInstance) },
-}));
-vi.mock('axios-retry', () => ({ default: vi.fn() }));
-
+import { installFetchMock, jsonResponse } from './helpers/fetch-mock';
 import { KaitenClient, KaitenError, KaitenErrorType } from '../src/kaiten-client';
 
+const BASE = 'https://test.kaiten.ru/api/latest';
 let client: KaitenClient;
+let fetchMock: ReturnType<typeof installFetchMock>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  client = new KaitenClient('https://test.kaiten.ru/api/latest', 'test-token-0123456789-ABCDEF');
+  fetchMock = installFetchMock();
+  client = new KaitenClient(BASE, 'test-token-0123456789-ABCDEF');
 });
+
+/** Helper: the [url, init] tuple of the Nth fetch call. */
+function call(n = 0): [string, RequestInit] {
+  return fetchMock.mock.calls[n] as [string, RequestInit];
+}
 
 describe('KaitenError', () => {
   it('captures type, message, status, details and hint', () => {
@@ -52,132 +38,143 @@ describe('KaitenError', () => {
 });
 
 describe('card operations', () => {
-  it('getCard GETs /cards/:id and unwraps response.data', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 5, title: 'Card 5' } });
+  it('getCard GETs /cards/:id and unwraps the JSON body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Card 5' }));
     const card = await client.getCard(5);
     expect(card).toEqual({ id: 5, title: 'Card 5' });
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5', { signal: undefined });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5`);
+    expect((init.method ?? 'GET').toUpperCase()).toBe('GET');
   });
 
-  it('createCard POSTs /cards with an Idempotency-Key header', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 9 } });
+  it('createCard POSTs /cards with an Idempotency-Key header and JSON body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 9 }));
     const result = await client.createCard({ title: 'New', board_id: 3 });
     expect(result).toEqual({ id: 9 });
-
-    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
-    expect(url).toBe('/cards');
-    expect(data).toEqual({ title: 'New', board_id: 3 });
-    expect(opts.headers['Idempotency-Key']).toBeTruthy();
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'New', board_id: 3 });
+    expect((init.headers as Record<string, string>)['Idempotency-Key']).toBeTruthy();
   });
 
   it('createCard reuses a caller-supplied idempotency key and strips it from the body', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 9 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 9 }));
     await client.createCard({ title: 'New', board_id: 3, idempotency_key: 'my-key' });
-    const [, data, opts] = mockAxiosInstance.post.mock.calls[0];
-    expect(data).not.toHaveProperty('idempotency_key');
-    expect(opts.headers['Idempotency-Key']).toBe('my-key');
+    const [, init] = call();
+    const body = JSON.parse(init.body as string);
+    expect(body).not.toHaveProperty('idempotency_key');
+    expect((init.headers as Record<string, string>)['Idempotency-Key']).toBe('my-key');
   });
 
   it('updateCard PATCHes /cards/:id', async () => {
-    mockAxiosInstance.patch.mockResolvedValueOnce({ data: { id: 5, title: 'Updated' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Updated' }));
     const result = await client.updateCard(5, { title: 'Updated' });
     expect(result).toEqual({ id: 5, title: 'Updated' });
-    expect(mockAxiosInstance.patch.mock.calls[0][0]).toBe('/cards/5');
-    expect(mockAxiosInstance.patch.mock.calls[0][1]).toEqual({ title: 'Updated' });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5`);
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({ title: 'Updated' });
   });
 
   it('deleteCard DELETEs /cards/:id', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(undefined, { status: 200 }));
     await client.deleteCard(5);
-    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5', { signal: undefined });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5`);
+    expect(init.method).toBe('DELETE');
   });
 
   it('getCardChildren GETs /cards/:id/children', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [{ id: 1 }] });
-    const children = await client.getCardChildren(5);
-    expect(children).toEqual([{ id: 1 }]);
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5/children', { signal: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 1 }]));
+    expect(await client.getCardChildren(5)).toEqual([{ id: 1 }]);
+    expect(call()[0]).toBe(`${BASE}/cards/5/children`);
   });
 
   it('addCardChild POSTs { card_id } to /cards/:id/children', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 99, title: 'Parent' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 99, title: 'Parent' }));
     const result = await client.addCardChild(5, 42);
     expect(result).toEqual({ id: 99, title: 'Parent' });
-    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
-    expect(url).toBe('/cards/5/children');
-    expect(data).toEqual({ card_id: 42 });
-    expect(opts).toEqual({ signal: undefined });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/children`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ card_id: 42 });
   });
 
   it('removeCardChild DELETEs /cards/:id/children/:childId', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 99 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 99 }));
     const result = await client.removeCardChild(5, 42);
     expect(result).toEqual({ id: 99 });
-    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5/children/42', { signal: undefined });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/children/42`);
+    expect(init.method).toBe('DELETE');
   });
 
   it('getCardParents GETs /cards/:id/parents', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [{ id: 7 }] });
-    const parents = await client.getCardParents(5);
-    expect(parents).toEqual([{ id: 7 }]);
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5/parents', { signal: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 7 }]));
+    expect(await client.getCardParents(5)).toEqual([{ id: 7 }]);
+    expect(call()[0]).toBe(`${BASE}/cards/5/parents`);
   });
 
   it('addCardParent POSTs { card_id } to /cards/:id/parents', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 99, title: 'Child' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 99, title: 'Child' }));
     const result = await client.addCardParent(5, 42);
     expect(result).toEqual({ id: 99, title: 'Child' });
-    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
-    expect(url).toBe('/cards/5/parents');
-    expect(data).toEqual({ card_id: 42 });
-    expect(opts).toEqual({ signal: undefined });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/parents`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ card_id: 42 });
   });
 
   it('removeCardParent DELETEs /cards/:id/parents/:parentId', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 88 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 88 }));
     const result = await client.removeCardParent(5, 42);
     expect(result).toEqual({ id: 88 });
-    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5/parents/42', { signal: undefined });
+    expect(call()[0]).toBe(`${BASE}/cards/5/parents/42`);
+    expect(call()[1].method).toBe('DELETE');
   });
 });
 
 describe('comment operations', () => {
   it('getCardComments GETs /cards/:id/comments', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [{ id: 1, text: 'hi' }] });
-    const comments = await client.getCardComments(5);
-    expect(comments).toEqual([{ id: 1, text: 'hi' }]);
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/cards/5/comments', { signal: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 1, text: 'hi' }]));
+    expect(await client.getCardComments(5)).toEqual([{ id: 1, text: 'hi' }]);
+    expect(call()[0]).toBe(`${BASE}/cards/5/comments`);
   });
 
   it('createComment POSTs text to /cards/:id/comments with an idempotency header', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 1 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1 }));
     await client.createComment(5, 'hello');
-    const [url, data, opts] = mockAxiosInstance.post.mock.calls[0];
-    expect(url).toBe('/cards/5/comments');
-    expect(data).toEqual({ text: 'hello' });
-    expect(opts.headers['Idempotency-Key']).toBeTruthy();
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/comments`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ text: 'hello' });
+    expect((init.headers as Record<string, string>)['Idempotency-Key']).toBeTruthy();
   });
 
   it('updateComment PATCHes /cards/:id/comments/:commentId', async () => {
-    mockAxiosInstance.patch.mockResolvedValueOnce({ data: { id: 2 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 2 }));
     await client.updateComment(5, 2, 'edited');
-    expect(mockAxiosInstance.patch.mock.calls[0][0]).toBe('/cards/5/comments/2');
-    expect(mockAxiosInstance.patch.mock.calls[0][1]).toEqual({ text: 'edited' });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/comments/2`);
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({ text: 'edited' });
   });
 
   it('deleteComment DELETEs /cards/:id/comments/:commentId', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(undefined));
     await client.deleteComment(5, 2);
-    expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/cards/5/comments/2', { signal: undefined });
+    expect(call()[0]).toBe(`${BASE}/cards/5/comments/2`);
+    expect(call()[1].method).toBe('DELETE');
   });
 });
 
 describe('searchCards', () => {
   it('applies default pagination and sorting in the query string', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
     await client.searchCards({});
-    const url: string = mockAxiosInstance.get.mock.calls[0][0];
-    expect(url.startsWith('/cards?')).toBe(true);
+    const url = call()[0];
+    expect(url.startsWith(`${BASE}/cards?`)).toBe(true);
     expect(url).toContain('limit=10');
     expect(url).toContain('skip=0');
     expect(url).toContain('sort_by=created');
@@ -185,9 +182,9 @@ describe('searchCards', () => {
   });
 
   it('serialises provided filters into the query string', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
     await client.searchCards({ board_id: 7, query: 'bug', limit: 5 });
-    const url: string = mockAxiosInstance.get.mock.calls[0][0];
+    const url = call()[0];
     expect(url).toContain('limit=5');
     expect(url).toContain('board_id=7');
     expect(url).toContain('query=bug');
@@ -196,48 +193,50 @@ describe('searchCards', () => {
 
 describe('space / board discovery', () => {
   it('getSpaces GETs /spaces', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [{ id: 1 }] });
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 1 }]));
     expect(await client.getSpaces()).toEqual([{ id: 1 }]);
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/spaces', { signal: undefined });
+    expect(call()[0]).toBe(`${BASE}/spaces`);
   });
 
   it('getBoards GETs /spaces/:id/boards', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [{ id: 10 }] });
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 10 }]));
     await client.getBoards(1);
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/spaces/1/boards', { signal: undefined });
+    expect(call()[0]).toBe(`${BASE}/spaces/1/boards`);
   });
 
   it('getColumns / getLanes / getTypes hit the right board endpoints', async () => {
-    mockAxiosInstance.get.mockResolvedValue({ data: [] });
+    fetchMock.mockResolvedValue(jsonResponse([]));
     await client.getColumns(2);
     await client.getLanes(2);
     await client.getTypes(2);
-    const urls = mockAxiosInstance.get.mock.calls.map((c) => c[0]);
-    expect(urls).toContain('/boards/2/columns');
-    expect(urls).toContain('/boards/2/lanes');
-    expect(urls).toContain('/boards/2/card_types');
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain(`${BASE}/boards/2/columns`);
+    expect(urls).toContain(`${BASE}/boards/2/lanes`);
+    expect(urls).toContain(`${BASE}/boards/2/card_types`);
   });
 });
 
 describe('user operations', () => {
   it('getCurrentUser GETs /users/current', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 1, full_name: 'Me' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 1, full_name: 'Me' }));
     expect(await client.getCurrentUser()).toEqual({ id: 1, full_name: 'Me' });
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/users/current', { signal: undefined });
+    expect(call()[0]).toBe(`${BASE}/users/current`);
   });
 
-  it('getUsers passes query/limit/offset as params', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+  it('getUsers passes query/limit/offset in the query string', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
     await client.getUsers({ query: 'Ivanov', limit: 20, offset: 5 });
-    const [url, opts] = mockAxiosInstance.get.mock.calls[0];
-    expect(url).toBe('/users');
-    expect(opts.params).toEqual({ query: 'Ivanov', limit: 20, offset: 5 });
+    const url = call()[0];
+    expect(url.startsWith(`${BASE}/users?`)).toBe(true);
+    expect(url).toContain('query=Ivanov');
+    expect(url).toContain('limit=20');
+    expect(url).toContain('offset=5');
   });
 
   it('getUsers omits params that were not provided', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: [] });
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
     await client.getUsers();
-    expect(mockAxiosInstance.get.mock.calls[0][1].params).toEqual({});
+    expect(call()[0]).toBe(`${BASE}/users`);
   });
 });
 
