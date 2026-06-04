@@ -205,7 +205,7 @@ describe('space / board discovery', () => {
   });
 
   it('getColumns / getLanes / getTypes hit the right board endpoints', async () => {
-    fetchMock.mockResolvedValue(jsonResponse([]));
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse([])));
     await client.getColumns(2);
     await client.getLanes(2);
     await client.getTypes(2);

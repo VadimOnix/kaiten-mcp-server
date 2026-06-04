@@ -1,11 +1,8 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import axiosRetry from 'axios-retry';
 import { default as PQueue } from 'p-queue';
 import { randomBytes } from 'crypto';
-import https from 'https';
 import { config, safeLog } from './config.js';
 import { logger } from './logging/index.js';
-import { setupLoggingMiddleware } from './middleware/logging-middleware.js';
+import { logHttpRequest, logHttpResponse, logHttpError } from './middleware/logging-middleware.js';
 
 // ============================================
 // ENHANCED ERROR TYPES
@@ -184,9 +181,19 @@ export interface UpdateCardParams {
 // KAITEN CLIENT WITH RETRY/BACKOFF/CONCURRENCY
 // ============================================
 
+interface KaitenRequestInit {
+  method?: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+}
+
 export class KaitenClient {
-  private client: AxiosInstance;
+  private static readonly MAX_RETRIES = 3;
+
   private queue: PQueue;
+  private readonly baseURL: string;
+  private readonly defaultHeaders: Record<string, string>;
 
   // Helper to generate idempotency key
   private generateIdempotencyKey(): string {
@@ -194,85 +201,23 @@ export class KaitenClient {
   }
 
   constructor(apiUrl: string, apiToken: string) {
-    // Create axios instance with timeout
-    const axiosConfig = {
-      baseURL: apiUrl,
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'mcp-kaiten/2.2.0 (+https://github.com/yourusername/mcp-kaiten)',
-      },
-      timeout: config.KAITEN_REQUEST_TIMEOUT_MS,
-      ...(config.KAITEN_INSECURE_SSL && {
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
-      }),
+    this.baseURL = apiUrl.replace(/\/+$/, '');
+    this.defaultHeaders = {
+      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'mcp-kaiten/2.2.0 (+https://github.com/yourusername/mcp-kaiten)',
     };
 
     if (config.KAITEN_INSECURE_SSL) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
       safeLog.warn('⚠️ SSL certificate verification is DISABLED (KAITEN_INSECURE_SSL=true). Use only for dev/corporate networks.');
     }
-
-    this.client = axios.create(axiosConfig);
-
-    // Configure axios-retry with exponential backoff
-    axiosRetry(this.client, {
-      retries: 3,
-      retryDelay: (retryCount, error) => {
-        // Check for Retry-After header
-        const retryAfter = error.response?.headers['retry-after'];
-        if (retryAfter) {
-          const seconds = parseInt(retryAfter, 10);
-          if (!isNaN(seconds)) {
-            safeLog.warn(`Rate limited. Waiting ${seconds}s as per Retry-After header.`);
-            return seconds * 1000;
-          }
-        }
-
-        // Exponential backoff with jitter: base_delay * (2^retryCount) + jitter
-        const baseDelay = 1000; // 1 second
-        const exponentialDelay = baseDelay * Math.pow(2, retryCount - 1);
-        const jitter = Math.random() * 500; // 0-500ms jitter
-        return exponentialDelay + jitter;
-      },
-      retryCondition: (error: AxiosError) => {
-        // Retry on network errors or specific HTTP status codes
-        if (!error.response) {
-          return true; // Network error
-        }
-
-        const status = error.response.status;
-
-        // Retry on 429 (rate limit), 5xx (server errors), 408 (timeout)
-        if (status === 429 || status === 408 || (status >= 500 && status < 600)) {
-          safeLog.warn(`Retrying request due to status ${status}`);
-          return true;
-        }
-
-        return false;
-      },
-      onRetry: (retryCount, error, requestConfig) => {
-        safeLog.warn(
-          `Retry attempt ${retryCount} for ${requestConfig.method?.toUpperCase()} ${requestConfig.url}`
-        );
-      },
-    });
-
-    // Add response interceptor for enhanced error handling
-    this.client.interceptors.response.use(
-      (response) => response,
-      (error: AxiosError) => {
-        throw this.handleAxiosError(error);
-      }
-    );
-
-    // Setup logging middleware
-    setupLoggingMiddleware(this.client);
 
     // Initialize concurrency queue
     this.queue = new PQueue({
       concurrency: config.KAITEN_MAX_CONCURRENT_REQUESTS,
-      interval: 1000, // 1 second interval
-      intervalCap: config.KAITEN_MAX_CONCURRENT_REQUESTS, // Max requests per interval
+      interval: 1000,
+      intervalCap: config.KAITEN_MAX_CONCURRENT_REQUESTS,
     });
 
     safeLog.info(
@@ -286,40 +231,124 @@ export class KaitenClient {
     }, 'kaiten-client');
   }
 
-  // Enhanced error handler
-  private handleAxiosError(error: AxiosError): KaitenError {
-    // Timeout error
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      return new KaitenError(
-        KaitenErrorType.TIMEOUT,
-        `Request timeout after ${config.KAITEN_REQUEST_TIMEOUT_MS}ms`,
-        undefined,
-        { code: error.code },
-        'Try reducing the limit parameter or specifying a more specific board_id/space_id'
-      );
+  // -------------------------------------------------------------------------
+  // Native-fetch transport with retry/backoff + logging + error mapping
+  // -------------------------------------------------------------------------
+
+  private isRetryableStatus(status: number): boolean {
+    return status === 429 || status === 408 || (status >= 500 && status < 600);
+  }
+
+  private backoffDelay(retryCount: number, retryAfterHeader: string | null): number {
+    if (retryAfterHeader) {
+      const seconds = parseInt(retryAfterHeader, 10);
+      if (!isNaN(seconds)) {
+        safeLog.warn(`Rate limited. Waiting ${seconds}s as per Retry-After header.`);
+        return seconds * 1000;
+      }
+    }
+    const baseDelay = 1000;
+    const exponentialDelay = baseDelay * Math.pow(2, retryCount - 1);
+    const jitter = Math.random() * 500;
+    return exponentialDelay + jitter;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async safeParseBody(res: Response): Promise<unknown> {
+    try {
+      const text = await res.text();
+      return text ? JSON.parse(text) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async request<T>(path: string, init: KaitenRequestInit = {}): Promise<T> {
+    const method = (init.method ?? 'GET').toUpperCase();
+    const url = `${this.baseURL}${path}`;
+    const callerSignal = init.signal;
+
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= KaitenClient.MAX_RETRIES; attempt++) {
+      const timeoutSignal = AbortSignal.timeout(config.KAITEN_REQUEST_TIMEOUT_MS);
+      const signal = callerSignal
+        ? AbortSignal.any([timeoutSignal, callerSignal])
+        : timeoutSignal;
+
+      const startTime = Date.now();
+      logHttpRequest({ method, url });
+
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method,
+          headers: { ...this.defaultHeaders, ...init.headers },
+          ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+          signal,
+        });
+      } catch (err) {
+        const durationMs = Date.now() - startTime;
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+
+        // Caller cancellation -> never retry.
+        if (isAbort && callerSignal?.aborted) {
+          logHttpError({ method, url, durationMs, message: 'Request aborted' });
+          throw new KaitenError(
+            KaitenErrorType.UNKNOWN_ERROR,
+            'Request aborted',
+            undefined,
+            { code: 'ABORTED' },
+            'The operation was cancelled'
+          );
+        }
+
+        const isTimeout = isAbort; // abort that isn't caller-driven == timeout
+        lastError = this.mapNetworkError(err, isTimeout);
+        logHttpError({ method, url, durationMs, message: (err as Error)?.message ?? 'network error' });
+
+        if (attempt < KaitenClient.MAX_RETRIES) {
+          safeLog.warn(`Retry attempt ${attempt + 1} for ${method} ${url}`);
+          await this.sleep(this.backoffDelay(attempt + 1, null));
+          continue;
+        }
+        throw lastError;
+      }
+
+      const durationMs = Date.now() - startTime;
+
+      if (res.ok) {
+        logHttpResponse({ method, url, status: res.status, durationMs });
+        const text = await res.text();
+        return (text ? JSON.parse(text) : undefined) as T;
+      }
+
+      // Non-OK response.
+      logHttpError({ method, url, status: res.status, durationMs, message: `HTTP ${res.status}` });
+
+      if (this.isRetryableStatus(res.status) && attempt < KaitenClient.MAX_RETRIES) {
+        safeLog.warn(`Retrying request due to status ${res.status}`);
+        await this.sleep(this.backoffDelay(attempt + 1, res.headers.get('retry-after')));
+        continue;
+      }
+
+      const body = await this.safeParseBody(res);
+      throw this.mapResponseError(res.status, res.headers, body);
     }
 
-    // Network error (no response from server)
-    if (!error.response) {
-      const sslText = `${error.message || ''} ${(error as any).code || ''}`;
-      const isSslError = /certificate|issuer|UNABLE_TO_GET|CERT_HAS_EXPIRED|SELF_SIGNED|DEPTH_ZERO|SSL/i.test(sslText);
-      return new KaitenError(
-        KaitenErrorType.NETWORK_ERROR,
-        error.message || 'Network error occurred',
-        undefined,
-        { code: error.code },
-        isSslError
-          ? config.KAITEN_INSECURE_SSL
-            ? 'SSL error persists despite KAITEN_INSECURE_SSL=true. Check your network/proxy or CA configuration.'
-            : 'SSL certificate error. Preferred fix: update ca-certificates (rebuild the Docker image). Last resort on a trusted network (self-signed/corporate proxy): set KAITEN_INSECURE_SSL=true'
-          : 'Check your internet connection and API URL configuration'
-      );
-    }
+    throw lastError ?? new KaitenError(
+      KaitenErrorType.UNKNOWN_ERROR,
+      'Request failed',
+      undefined,
+      {},
+      undefined
+    );
+  }
 
-    const status = error.response.status;
-    const data = error.response.data;
-
-    // Map status codes to error types
+  private mapResponseError(status: number, headers: Headers, data: unknown): KaitenError {
     const errorMap: Record<number, [KaitenErrorType, string, string]> = {
       401: [KaitenErrorType.AUTH_ERROR, 'Authentication failed', 'Check your KAITEN_API_TOKEN in .env file'],
       403: [KaitenErrorType.AUTH_ERROR, 'Insufficient permissions', 'Your API token does not have permission to perform this action'],
@@ -332,9 +361,8 @@ export class KaitenClient {
       return new KaitenError(type, message, status, data, hint);
     }
 
-    // 429 Rate limit (special handling for retry-after)
     if (status === 429) {
-      const retryAfter = error.response.headers['retry-after'] || 'unknown';
+      const retryAfter = headers.get('retry-after') || 'unknown';
       return new KaitenError(
         KaitenErrorType.RATE_LIMITED,
         'Rate limit exceeded',
@@ -344,7 +372,6 @@ export class KaitenClient {
       );
     }
 
-    // 5xx Server errors
     if (status >= 500 && status < 600) {
       return new KaitenError(
         KaitenErrorType.API_ERROR,
@@ -355,13 +382,39 @@ export class KaitenClient {
       );
     }
 
-    // Generic API error
     return new KaitenError(
       KaitenErrorType.API_ERROR,
-      error.message || 'API request failed',
+      `API request failed with status ${status}`,
       status,
       data,
       undefined
+    );
+  }
+
+  private mapNetworkError(err: unknown, isTimeout: boolean): KaitenError {
+    if (isTimeout) {
+      return new KaitenError(
+        KaitenErrorType.TIMEOUT,
+        `Request timeout after ${config.KAITEN_REQUEST_TIMEOUT_MS}ms`,
+        undefined,
+        { code: 'ETIMEDOUT' },
+        'Try reducing the limit parameter or specifying a more specific board_id/space_id'
+      );
+    }
+
+    const e = err as { message?: string; code?: string; cause?: { code?: string; message?: string } };
+    const sslText = `${e.message || ''} ${e.code || ''} ${e.cause?.code || ''} ${e.cause?.message || ''}`;
+    const isSslError = /certificate|issuer|UNABLE_TO_GET|CERT_HAS_EXPIRED|SELF_SIGNED|DEPTH_ZERO|SSL/i.test(sslText);
+    return new KaitenError(
+      KaitenErrorType.NETWORK_ERROR,
+      e.message || 'Network error occurred',
+      undefined,
+      { code: e.code ?? e.cause?.code },
+      isSslError
+        ? config.KAITEN_INSECURE_SSL
+          ? 'SSL error persists despite KAITEN_INSECURE_SSL=true. Check your network/proxy or CA configuration.'
+          : 'SSL certificate error. Preferred fix: update ca-certificates (rebuild the Docker image). Last resort on a trusted network (self-signed/corporate proxy): set KAITEN_INSECURE_SSL=true'
+        : 'Check your internet connection and API URL configuration'
     );
   }
 
@@ -403,41 +456,44 @@ export class KaitenClient {
 
   // Card operations
   async getCard(cardId: number, signal?: AbortSignal): Promise<KaitenCard> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/cards/${cardId}`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenCard>(`/cards/${cardId}`, { signal }), signal);
   }
 
   async createCard(params: CreateCardParams, signal?: AbortSignal): Promise<KaitenCard> {
-    return this.queuedRequest(async () => {
-      const { idempotency_key, ...cardData } = params;
-      // Auto-generate idempotency key if not provided
-      const key = idempotency_key || this.generateIdempotencyKey();
-      const headers = { 'Idempotency-Key': key };
-      const response = await this.client.post('/cards', cardData, { headers, signal });
-      return response.data;
-    }, signal);
+    const { idempotency_key, ...cardData } = params;
+    const key = idempotency_key || this.generateIdempotencyKey();
+    return this.queuedRequest(
+      () => this.request<KaitenCard>('/cards', {
+        method: 'POST',
+        body: cardData,
+        headers: { 'Idempotency-Key': key },
+        signal,
+      }),
+      signal,
+    );
   }
 
   async updateCard(cardId: number, params: UpdateCardParams, signal?: AbortSignal): Promise<KaitenCard> {
-    return this.queuedRequest(async () => {
-      const { idempotency_key, ...cardData } = params;
-      // Auto-generate idempotency key if not provided
-      const key = idempotency_key || this.generateIdempotencyKey();
-      const headers = { 'Idempotency-Key': key };
-      const response = await this.client.patch(`/cards/${cardId}`, cardData, { headers, signal });
-      return response.data;
-    }, signal);
+    const { idempotency_key, ...cardData } = params;
+    const key = idempotency_key || this.generateIdempotencyKey();
+    return this.queuedRequest(
+      () => this.request<KaitenCard>(`/cards/${cardId}`, {
+        method: 'PATCH',
+        body: cardData,
+        headers: { 'Idempotency-Key': key },
+        signal,
+      }),
+      signal,
+    );
   }
 
   async deleteCard(cardId: number, signal?: AbortSignal): Promise<void> {
-    return this.queuedRequest(async () => {
-      await this.client.delete(`/cards/${cardId}`, { signal });
-    }, signal);
+    await this.queuedRequest(
+      () => this.request<void>(`/cards/${cardId}`, { method: 'DELETE', signal }),
+      signal,
+    );
   }
 
-  // Get cards from a board
   async getCardsFromBoard(
     boardId: number,
     limit: number = 10,
@@ -445,16 +501,10 @@ export class KaitenClient {
     condition: number = 1,
     signal?: AbortSignal
   ): Promise<KaitenCard[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(
-        `/boards/${boardId}/cards?limit=${limit}&skip=${skip}&sort_by=created&sort_direction=desc&condition=${condition}`,
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    const path = `/boards/${boardId}/cards?limit=${limit}&skip=${skip}&sort_by=created&sort_direction=desc&condition=${condition}`;
+    return this.queuedRequest(() => this.request<KaitenCard[]>(path, { signal }), signal);
   }
 
-  // Get cards from a space
   async getCardsFromSpace(
     spaceId: number,
     limit: number = 10,
@@ -462,22 +512,13 @@ export class KaitenClient {
     condition: number = 1,
     signal?: AbortSignal
   ): Promise<KaitenCard[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(
-        `/spaces/${spaceId}/cards?limit=${limit}&skip=${skip}&sort_by=created&sort_direction=desc&condition=${condition}`,
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    const path = `/spaces/${spaceId}/cards?limit=${limit}&skip=${skip}&sort_by=created&sort_direction=desc&condition=${condition}`;
+    return this.queuedRequest(() => this.request<KaitenCard[]>(path, { signal }), signal);
   }
 
-  // Search cards (using filters)
   async searchCards(params: {
-    // Text search
     query?: string;
     title?: string;
-
-    // Basic filters
     space_id?: number;
     board_id?: number;
     column_id?: number;
@@ -486,8 +527,6 @@ export class KaitenClient {
     owner_id?: number;
     type_id?: number;
     condition?: number;
-
-    // Date filters
     created_before?: string;
     created_after?: string;
     updated_before?: string;
@@ -496,216 +535,161 @@ export class KaitenClient {
     due_date_after?: string;
     last_moved_to_done_at_before?: string;
     last_moved_to_done_at_after?: string;
-
-    // Boolean flags
     asap?: boolean;
     archived?: boolean;
     overdue?: boolean;
     done_on_time?: boolean;
     with_due_date?: boolean;
-
-    // Multiple IDs (comma-separated)
     owner_ids?: string;
     member_ids?: string;
     column_ids?: string;
     type_ids?: string;
     tag_ids?: string;
-
-    // Exclude filters
     exclude_board_ids?: string;
     exclude_owner_ids?: string;
     exclude_card_ids?: string;
-
-    // Sorting and pagination
     sort_by?: string;
     sort_direction?: string;
     limit?: number;
     skip?: number;
   }, signal?: AbortSignal): Promise<KaitenCard[]> {
-    return this.queuedRequest(async () => {
-      const queryParams = new URLSearchParams();
+    const queryParams = new URLSearchParams();
+    const limit = params.limit || 10;
+    const skip = params.skip || 0;
+    queryParams.append('limit', limit.toString());
+    queryParams.append('skip', skip.toString());
+    const sortBy = params.sort_by || 'created';
+    const sortDirection = params.sort_direction || 'desc';
+    queryParams.append('sort_by', sortBy);
+    queryParams.append('sort_direction', sortDirection);
 
-      // Set default limit if not provided
-      const limit = params.limit || 10;
-      const skip = params.skip || 0;
+    Object.entries(params).forEach(([key, value]) => {
+      if (
+        value !== undefined &&
+        key !== 'limit' &&
+        key !== 'skip' &&
+        key !== 'sort_by' &&
+        key !== 'sort_direction'
+      ) {
+        queryParams.append(key, value.toString());
+      }
+    });
 
-      queryParams.append('limit', limit.toString());
-      queryParams.append('skip', skip.toString());
-
-      // Sort by created date, newest first (default)
-      const sortBy = params.sort_by || 'created';
-      const sortDirection = params.sort_direction || 'desc';
-      queryParams.append('sort_by', sortBy);
-      queryParams.append('sort_direction', sortDirection);
-
-      // Add all other parameters (exclude already processed ones)
-      Object.entries(params).forEach(([key, value]) => {
-        if (
-          value !== undefined &&
-          key !== 'limit' &&
-          key !== 'skip' &&
-          key !== 'sort_by' &&
-          key !== 'sort_direction'
-        ) {
-          queryParams.append(key, value.toString());
-        }
-      });
-
-      const response = await this.client.get(`/cards?${queryParams.toString()}`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(
+      () => this.request<KaitenCard[]>(`/cards?${queryParams.toString()}`, { signal }),
+      signal,
+    );
   }
 
   // Comment operations
   async getCardComments(cardId: number, signal?: AbortSignal): Promise<KaitenComment[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/cards/${cardId}/comments`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenComment[]>(`/cards/${cardId}/comments`, { signal }), signal);
   }
 
   async createComment(cardId: number, text: string, idempotencyKey?: string, signal?: AbortSignal): Promise<KaitenComment> {
-    return this.queuedRequest(async () => {
-      // Auto-generate idempotency key if not provided
-      const key = idempotencyKey || this.generateIdempotencyKey();
-      const headers = { 'Idempotency-Key': key };
-      const response = await this.client.post(`/cards/${cardId}/comments`, { text }, { headers, signal });
-      return response.data;
-    }, signal);
+    const key = idempotencyKey || this.generateIdempotencyKey();
+    return this.queuedRequest(
+      () => this.request<KaitenComment>(`/cards/${cardId}/comments`, {
+        method: 'POST',
+        body: { text },
+        headers: { 'Idempotency-Key': key },
+        signal,
+      }),
+      signal,
+    );
   }
 
   async updateComment(cardId: number, commentId: number, text: string, idempotencyKey?: string, signal?: AbortSignal): Promise<KaitenComment> {
-    return this.queuedRequest(async () => {
-      // Auto-generate idempotency key if not provided
-      const key = idempotencyKey || this.generateIdempotencyKey();
-      const headers = { 'Idempotency-Key': key };
-      const response = await this.client.patch(`/cards/${cardId}/comments/${commentId}`, { text }, { headers, signal });
-      return response.data;
-    }, signal);
+    const key = idempotencyKey || this.generateIdempotencyKey();
+    return this.queuedRequest(
+      () => this.request<KaitenComment>(`/cards/${cardId}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: { text },
+        headers: { 'Idempotency-Key': key },
+        signal,
+      }),
+      signal,
+    );
   }
 
   async deleteComment(cardId: number, commentId: number, signal?: AbortSignal): Promise<void> {
-    return this.queuedRequest(async () => {
-      await this.client.delete(`/cards/${cardId}/comments/${commentId}`, { signal });
-    }, signal);
+    await this.queuedRequest(
+      () => this.request<void>(`/cards/${cardId}/comments/${commentId}`, { method: 'DELETE', signal }),
+      signal,
+    );
   }
 
   // Card relationships
   async getCardChildren(cardId: number, signal?: AbortSignal): Promise<KaitenCard[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/cards/${cardId}/children`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenCard[]>(`/cards/${cardId}/children`, { signal }), signal);
   }
 
   async addCardChild(cardId: number, childCardId: number, signal?: AbortSignal): Promise<KaitenCard> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.post(
-        `/cards/${cardId}/children`,
-        { card_id: childCardId },
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    return this.queuedRequest(
+      () => this.request<KaitenCard>(`/cards/${cardId}/children`, { method: 'POST', body: { card_id: childCardId }, signal }),
+      signal,
+    );
   }
 
   async removeCardChild(cardId: number, childCardId: number, signal?: AbortSignal): Promise<{ id: number }> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.delete(
-        `/cards/${cardId}/children/${childCardId}`,
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    return this.queuedRequest(
+      () => this.request<{ id: number }>(`/cards/${cardId}/children/${childCardId}`, { method: 'DELETE', signal }),
+      signal,
+    );
   }
 
   async getCardParents(cardId: number, signal?: AbortSignal): Promise<KaitenCard[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/cards/${cardId}/parents`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenCard[]>(`/cards/${cardId}/parents`, { signal }), signal);
   }
 
   async addCardParent(cardId: number, parentCardId: number, signal?: AbortSignal): Promise<KaitenCard> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.post(
-        `/cards/${cardId}/parents`,
-        { card_id: parentCardId },
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    return this.queuedRequest(
+      () => this.request<KaitenCard>(`/cards/${cardId}/parents`, { method: 'POST', body: { card_id: parentCardId }, signal }),
+      signal,
+    );
   }
 
   async removeCardParent(cardId: number, parentCardId: number, signal?: AbortSignal): Promise<{ id: number }> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.delete(
-        `/cards/${cardId}/parents/${parentCardId}`,
-        { signal }
-      );
-      return response.data;
-    }, signal);
+    return this.queuedRequest(
+      () => this.request<{ id: number }>(`/cards/${cardId}/parents/${parentCardId}`, { method: 'DELETE', signal }),
+      signal,
+    );
   }
 
   // Space operations
   async getSpaces(signal?: AbortSignal): Promise<KaitenSpace[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get('/spaces', { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenSpace[]>('/spaces', { signal }), signal);
   }
 
   async getSpace(spaceId: number, signal?: AbortSignal): Promise<KaitenSpace> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/spaces/${spaceId}`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenSpace>(`/spaces/${spaceId}`, { signal }), signal);
   }
 
   // Board operations
   async getBoards(spaceId: number, signal?: AbortSignal): Promise<KaitenBoard[]> {
-    return this.queuedRequest(async () => {
-      // spaceId is now required - Kaiten API doesn't support /boards without space_id
-      const response = await this.client.get(`/spaces/${spaceId}/boards`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenBoard[]>(`/spaces/${spaceId}/boards`, { signal }), signal);
   }
 
   async getBoard(boardId: number, signal?: AbortSignal): Promise<KaitenBoard> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/boards/${boardId}`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenBoard>(`/boards/${boardId}`, { signal }), signal);
   }
 
   // Board справочники (columns, lanes, types)
   async getColumns(boardId: number, signal?: AbortSignal): Promise<KaitenColumn[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/boards/${boardId}/columns`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenColumn[]>(`/boards/${boardId}/columns`, { signal }), signal);
   }
 
   async getLanes(boardId: number, signal?: AbortSignal): Promise<KaitenLane[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/boards/${boardId}/lanes`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenLane[]>(`/boards/${boardId}/lanes`, { signal }), signal);
   }
 
   async getTypes(boardId: number, signal?: AbortSignal): Promise<KaitenType[]> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get(`/boards/${boardId}/card_types`, { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenType[]>(`/boards/${boardId}/card_types`, { signal }), signal);
   }
 
   // User operations
   async getCurrentUser(signal?: AbortSignal): Promise<KaitenUser> {
-    return this.queuedRequest(async () => {
-      const response = await this.client.get('/users/current', { signal });
-      return response.data;
-    }, signal);
+    return this.queuedRequest(() => this.request<KaitenUser>('/users/current', { signal }), signal);
   }
 
   async getUsers(params?: {
@@ -713,29 +697,12 @@ export class KaitenClient {
     limit?: number;
     offset?: number;
   }, signal?: AbortSignal): Promise<KaitenUser[]> {
-    return this.queuedRequest(async () => {
-      // Use /users endpoint with server-side filtering support
-      // According to Kaiten API docs, /users supports query, limit, and offset parameters
-      const queryParams: any = {};
-
-      if (params?.query) {
-        queryParams.query = params.query;
-      }
-
-      if (params?.limit !== undefined) {
-        queryParams.limit = params.limit;
-      }
-
-      if (params?.offset !== undefined) {
-        queryParams.offset = params.offset;
-      }
-
-      const response = await this.client.get('/users', {
-        params: queryParams,
-        signal
-      });
-      return response.data;
-    }, signal);
+    const qs = new URLSearchParams();
+    if (params?.query) qs.append('query', params.query);
+    if (params?.limit !== undefined) qs.append('limit', String(params.limit));
+    if (params?.offset !== undefined) qs.append('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.queuedRequest(() => this.request<KaitenUser[]>(`/users${suffix}`, { signal }), signal);
   }
 
   // Queue status (for debugging)
