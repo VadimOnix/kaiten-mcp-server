@@ -1,34 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-// ---- Mock the HTTP layer ----------------------------------------------------
-// createServer() builds a KaitenClient, which builds its own axios instance.
-// We replace axios.create() with a controllable fake (same pattern as
-// test/kaiten-client.test.ts) and stub axios-retry to a no-op so the real
-// server can be driven entirely from in-memory mock responses.
-const { mockAxiosInstance } = vi.hoisted(() => ({
-  mockAxiosInstance: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
-    interceptors: {
-      request: { use: vi.fn() },
-      response: { use: vi.fn() },
-    },
-  },
-}));
-
-vi.mock('axios', () => ({
-  default: { create: vi.fn(() => mockAxiosInstance) },
-}));
-vi.mock('axios-retry', () => ({ default: vi.fn() }));
+import { installFetchMock, jsonResponse } from './helpers/fetch-mock';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
-import { KaitenError, KaitenErrorType } from '../src/kaiten-client.js';
 import { cache } from '../src/cache.js';
 import { ALL_TOOLS } from '../src/tools/index.js';
+
+let fetchMock: ReturnType<typeof installFetchMock>;
 
 async function connect(): Promise<Client> {
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
@@ -51,6 +30,7 @@ async function callText(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fetchMock = installFetchMock();
   // The LRU cache is a shared singleton imported by server.ts. list_spaces,
   // list_boards and parameterless list_users cache their results, so we clear
   // it between tests to keep every snapshot self-contained and deterministic.
@@ -133,7 +113,7 @@ describe('protocol contract', () => {
   });
 
   it('get_card returns the markdown card sheet for a known card', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 5, title: 'Demo' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Demo' }));
     const client = await connect();
     const res = await client.callTool({ name: 'kaiten_get_card', arguments: { card_id: 5 } });
     expect(res.isError).toBeFalsy();
@@ -141,18 +121,8 @@ describe('protocol contract', () => {
   });
 
   it('maps a Kaiten 404 to an error result mentioning not found', async () => {
-    // Production: the axios response interceptor maps a 404 into a KaitenError
-    // of type NOT_FOUND. The interceptor is stubbed by the axios mock above, so
-    // we reject with the same KaitenError the live client would have produced.
-    mockAxiosInstance.get.mockRejectedValueOnce(
-      new KaitenError(
-        KaitenErrorType.NOT_FOUND,
-        'Resource not found',
-        404,
-        {},
-        'Check that the card_id, board_id, space_id, or other resource ID is correct',
-      ),
-    );
+    // The live client maps a 404 Response into a KaitenError(NOT_FOUND).
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, { status: 404 }));
     const client = await connect();
     const res = await client.callTool({ name: 'kaiten_get_card', arguments: { card_id: 999999 } });
     expect(res.isError).toBe(true);
@@ -162,7 +132,7 @@ describe('protocol contract', () => {
   // Characterizes client-side abort only: the MCP client's pending call rejects when aborted.
   // Server-side extra.signal propagation is wired in Task 4, which will strengthen this test.
   it('client-side abort: an aborted MCP call rejects on the caller side', async () => {
-    mockAxiosInstance.get.mockImplementation(() => new Promise(() => {})); // never resolves
+    fetchMock.mockImplementation(() => new Promise(() => {})); // never resolves
     const client = await connect();
     const ac = new AbortController();
     const p = client.callTool(
@@ -201,9 +171,9 @@ describe('resources + prompts (migrated to McpServer.server handlers)', () => {
   });
 
   it('reads the opaque kaiten-current-user: resource and returns simplified user JSON', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: { id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true },
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true }),
+    );
     const client = await connect();
     const res = await client.readResource({ uri: 'kaiten-current-user:' });
     expect(res.contents[0].mimeType).toBe('application/json');
@@ -211,7 +181,7 @@ describe('resources + prompts (migrated to McpServer.server handlers)', () => {
   });
 
   it('reads a kaiten-card:/// resource and returns simplified card JSON', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 5, title: 'Demo' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Demo' }));
     const client = await connect();
     const res = await client.readResource({ uri: 'kaiten-card:///5' });
     expect(res.contents[0].uri).toBe('kaiten-card:///5');
@@ -242,7 +212,7 @@ describe('resources + prompts (migrated to McpServer.server handlers)', () => {
 // =============================================================================
 describe('tool happy-path characterization snapshots', () => {
   it('kaiten_get_card', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({ data: { id: 5, title: 'Demo Card' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Demo Card' }));
     const client = await connect();
     expect(await callText(client, 'kaiten_get_card', { card_id: 5 })).toMatchInlineSnapshot(`
       "# Demo Card
@@ -257,7 +227,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_create_card', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 9, title: 'New Card', board_id: 3 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 9, title: 'New Card', board_id: 3 }));
     const client = await connect();
     expect(await callText(client, 'kaiten_create_card', { title: 'New Card', board_id: 3 }))
       .toMatchInlineSnapshot(`
@@ -270,7 +240,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_update_card', async () => {
-    mockAxiosInstance.patch.mockResolvedValueOnce({ data: { id: 5, title: 'Updated Card' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Updated Card' }));
     const client = await connect();
     expect(await callText(client, 'kaiten_update_card', { card_id: 5, title: 'Updated Card' }))
       .toMatchInlineSnapshot(`
@@ -282,16 +252,16 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_delete_card', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(undefined));
     const client = await connect();
     expect(await callText(client, 'kaiten_delete_card', { card_id: 5 }))
       .toMatchInlineSnapshot(`"Card 5 deleted successfully"`);
   });
 
   it('kaiten_search_cards', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 7, title: 'Found Card', board: { title: 'Board A' } }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 7, title: 'Found Card', board: { title: 'Board A' } }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_search_cards', { query: 'Found', board_id: 3 }))
       .toMatchInlineSnapshot(`
@@ -310,11 +280,11 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_get_card_comments', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([
         { id: 1, text: 'first comment', created: '2025-01-01T00:00:00Z', author: { id: 2, full_name: 'Alice' } },
-      ],
-    });
+      ]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_get_card_comments', { card_id: 5 }))
       .toMatchInlineSnapshot(`
@@ -331,9 +301,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_create_comment', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({
-      data: { id: 11, text: 'hello', card_id: 5 },
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 11, text: 'hello', card_id: 5 }),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_create_comment', { card_id: 5, text: 'hello' }))
       .toMatchInlineSnapshot(`
@@ -346,9 +316,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_update_comment', async () => {
-    mockAxiosInstance.patch.mockResolvedValueOnce({
-      data: { id: 11, text: 'edited', card_id: 5 },
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 11, text: 'edited', card_id: 5 }),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_update_comment', { card_id: 5, comment_id: 11, text: 'edited' }))
       .toMatchInlineSnapshot(`
@@ -361,16 +331,16 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_delete_comment', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: undefined });
+    fetchMock.mockResolvedValueOnce(jsonResponse(undefined));
     const client = await connect();
     expect(await callText(client, 'kaiten_delete_comment', { card_id: 5, comment_id: 11 }))
       .toMatchInlineSnapshot(`"Comment 11 deleted successfully"`);
   });
 
   it('kaiten_get_card_children', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 42, title: 'Subtask', board: { title: 'Board A' } }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 42, title: 'Subtask', board: { title: 'Board A' } }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_get_card_children', { card_id: 5 }))
       .toMatchInlineSnapshot(`
@@ -389,7 +359,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_add_card_children', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 5, title: 'Parent' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Parent' }));
     const client = await connect();
     expect(await callText(client, 'kaiten_add_card_children', { card_id: 5, child_card_ids: [42] }))
       .toMatchInlineSnapshot(`
@@ -405,7 +375,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_remove_card_children', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 5 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5 }));
     const client = await connect();
     expect(await callText(client, 'kaiten_remove_card_children', { card_id: 5, child_card_ids: [42] }))
       .toMatchInlineSnapshot(`
@@ -421,9 +391,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_get_card_parents', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 70, title: 'Parent Card', board: { title: 'Board A' } }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 70, title: 'Parent Card', board: { title: 'Board A' } }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_get_card_parents', { card_id: 5 }))
       .toMatchInlineSnapshot(`
@@ -442,7 +412,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_add_card_parents', async () => {
-    mockAxiosInstance.post.mockResolvedValueOnce({ data: { id: 5, title: 'Child' } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Child' }));
     const client = await connect();
     expect(await callText(client, 'kaiten_add_card_parents', { card_id: 5, parent_card_ids: [70] }))
       .toMatchInlineSnapshot(`
@@ -458,7 +428,7 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_remove_card_parents', async () => {
-    mockAxiosInstance.delete.mockResolvedValueOnce({ data: { id: 5 } });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5 }));
     const client = await connect();
     expect(await callText(client, 'kaiten_remove_card_parents', { card_id: 5, parent_card_ids: [70] }))
       .toMatchInlineSnapshot(`
@@ -474,9 +444,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_spaces', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 1, title: 'Space One', archived: false, boards: [{ id: 10, title: 'Board A' }] }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 1, title: 'Space One', archived: false, boards: [{ id: 10, title: 'Board A' }] }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_spaces', {})).toMatchInlineSnapshot(`
       "Found 1 space(s):
@@ -489,9 +459,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_boards', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 10, title: 'Board A', space_id: 42, archived: false }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 10, title: 'Board A', space_id: 42, archived: false }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_boards', { space_id: 42 })).toMatchInlineSnapshot(`
       "[
@@ -506,9 +476,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_columns', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 100, title: 'Backlog' }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 100, title: 'Backlog' }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_columns', { board_id: 10 })).toMatchInlineSnapshot(`
       "[
@@ -521,9 +491,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_lanes', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 200, title: 'High Priority' }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 200, title: 'High Priority' }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_lanes', { board_id: 10 })).toMatchInlineSnapshot(`
       "[
@@ -536,9 +506,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_types', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 300, name: 'Bug' }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 300, name: 'Bug' }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_types', { board_id: 10 })).toMatchInlineSnapshot(`
       "[
@@ -551,9 +521,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_get_current_user', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: { id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true },
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true }),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_get_current_user', {})).toMatchInlineSnapshot(`
       "{
@@ -567,9 +537,9 @@ describe('tool happy-path characterization snapshots', () => {
   });
 
   it('kaiten_list_users', async () => {
-    mockAxiosInstance.get.mockResolvedValueOnce({
-      data: [{ id: 2, full_name: 'Alice', email: 'alice@example.com', username: 'alice', activated: true }],
-    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse([{ id: 2, full_name: 'Alice', email: 'alice@example.com', username: 'alice', activated: true }]),
+    );
     const client = await connect();
     expect(await callText(client, 'kaiten_list_users', { query: 'Alice' })).toMatchInlineSnapshot(`
       "[
