@@ -15,6 +15,10 @@ import { removeCardChildren } from './relations/remove-card-children.js';
 import { getCardParents } from './relations/get-card-parents.js';
 import { addCardParents } from './relations/add-card-parents.js';
 import { removeCardParents } from './relations/remove-card-parents.js';
+import { getCardMembers } from './members/get-card-members.js';
+import { addCardMembers } from './members/add-card-members.js';
+import { removeCardMembers } from './members/remove-card-members.js';
+import { setCardResponsible } from './members/set-card-responsible.js';
 import { listSpaces } from './reference/list-spaces.js';
 import { listBoards } from './reference/list-boards.js';
 import { listColumns } from './reference/list-columns.js';
@@ -39,6 +43,10 @@ export const ALL_TOOLS: ToolDefinition[] = [
   getCardParents,
   addCardParents,
   removeCardParents,
+  getCardMembers,
+  addCardMembers,
+  removeCardMembers,
+  setCardResponsible,
   listSpaces,
   listBoards,
   listColumns,
