@@ -67,4 +67,48 @@ describe('kaiten_get_card_comments tool module', () => {
     expect(getCardComments.annotations.readOnly).toBe(true);
     expect(getCardComments.description.length).toBeGreaterThan(0);
   });
+
+  // Pagination + verbosity (context-economy: a long thread must not dump every
+  // comment into the model). Default = the most recent `limit` comments, in
+  // chronological order; offset pages into older history.
+  const thread = [
+    { id: 1, text: 'oldest', created: '2025-01-01T00:00:00Z', author: { id: 9, full_name: 'A' } },
+    { id: 2, text: 'middle', created: '2025-01-02T00:00:00Z', author: { id: 9, full_name: 'A' } },
+    { id: 3, text: 'newest', created: '2025-01-03T00:00:00Z', author: { id: 9, full_name: 'A' } },
+  ];
+
+  it('limit returns the most recent N comments, in chronological order', async () => {
+    const fn = vi.fn().mockResolvedValue(thread);
+    const res = await getCardComments.run({ card_id: 5, limit: 2 }, fakeCtx({ client: { getCardComments: fn } }));
+    expect(res.isError).toBeFalsy();
+    expect(JSON.parse(res.content[0].text).map((c: any) => c.id)).toEqual([2, 3]);
+  });
+
+  it('offset pages into older history (skips the most recent)', async () => {
+    const fn = vi.fn().mockResolvedValue(thread);
+    const res = await getCardComments.run({ card_id: 5, limit: 1, offset: 1 }, fakeCtx({ client: { getCardComments: fn } }));
+    expect(JSON.parse(res.content[0].text).map((c: any) => c.id)).toEqual([2]);
+  });
+
+  it('sorts by created even if the API returns them out of order', async () => {
+    const fn = vi.fn().mockResolvedValue([thread[2], thread[0], thread[1]]); // shuffled
+    const res = await getCardComments.run({ card_id: 5 }, fakeCtx({ client: { getCardComments: fn } }));
+    expect(JSON.parse(res.content[0].text).map((c: any) => c.id)).toEqual([1, 2, 3]);
+  });
+
+  it('verbosity=minimal returns only id, text, author_name', async () => {
+    const raw = [{ id: 1, text: 'hi', created: '2025-01-01T00:00:00Z', updated: '2025-01-02T00:00:00Z', author: { id: 9, full_name: 'A' } }];
+    const fn = vi.fn().mockResolvedValue(raw);
+    const res = await getCardComments.run({ card_id: 5, verbosity: 'minimal' }, fakeCtx({ client: { getCardComments: fn } }));
+    expect(JSON.parse(res.content[0].text)[0]).toEqual({ id: 1, text: 'hi', author_name: 'A' });
+  });
+
+  it('verbosity=detailed returns the raw comment untouched', async () => {
+    const raw = [{ id: 1, text: 'hi', created: '2025-01-01T00:00:00Z', author: { id: 9, full_name: 'A' }, extra: 'kept' }];
+    const fn = vi.fn().mockResolvedValue(raw);
+    const res = await getCardComments.run({ card_id: 5, verbosity: 'detailed' }, fakeCtx({ client: { getCardComments: fn } }));
+    const parsed = JSON.parse(res.content[0].text)[0];
+    expect(parsed).toHaveProperty('extra', 'kept');
+    expect(parsed.author).toEqual({ id: 9, full_name: 'A' });
+  });
 });

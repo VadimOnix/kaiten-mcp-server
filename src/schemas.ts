@@ -186,6 +186,11 @@ export const SearchCardsSchema = z.object({
 
 export const GetCardCommentsSchema = z.object({
   card_id: z.number().positive().int().describe('The ID of the card'),
+  limit: z.number().int().positive().max(100).optional().default(50)
+    .describe('Max comments to return — the most recent ones (default 50, max 100). Protects context on long threads.'),
+  offset: z.number().int().min(0).optional().default(0)
+    .describe('Skip this many of the most recent comments to page into older history (default 0).'),
+  verbosity: VerbosityEnum,
 }).strict();
 
 export const CreateCommentSchema = z.object({

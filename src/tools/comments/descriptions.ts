@@ -4,7 +4,7 @@
 // the Zod schema (.describe()) and cross-tool rules in the server instructions.
 // Length is guarded by test/tools/description-budget.test.ts (≤700).
 
-export const GET_CARD_COMMENTS_DESC = `Get all comments on a card as a chronological JSON array (id, text, created, updated, author_id, author_name); [] if none. Comments support markdown. Check kaiten_get_card's comments_total first to avoid fetching a long thread you don't need (not cached, no pagination — returns everything). Find the card via kaiten_search_cards. The id values here feed kaiten_update_comment / kaiten_delete_comment.`;
+export const GET_CARD_COMMENTS_DESC = `Get a card's comments as a chronological JSON array (id, text, created, author_name, …); [] if none. Returns the most recent \`limit\` (default 50, max 100); use \`offset\` to page into older history and \`verbosity\` (minimal|normal|detailed) to control detail. Comments support markdown. Find the card via kaiten_search_cards; for very long threads check kaiten_get_card's comments_total first. The id values here feed kaiten_update_comment / kaiten_delete_comment.`;
 
 export const CREATE_COMMENT_DESC = `Add a comment to a card. Required: card_id and text (markdown supported, min 1 char). Optional idempotency_key for safe retries. Comments are visible to all card participants, appear in card history, and notify followers — never post secrets. For status changes update card fields (state/owner) instead of commenting. Returns the new comment (id, text, created, author). Find the card via kaiten_search_cards; read the existing thread with kaiten_get_card_comments.`;
 
