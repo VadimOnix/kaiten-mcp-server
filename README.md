@@ -462,7 +462,7 @@ MCP Kaiten/
 │   │   ├── mcp-logger.ts     # MCP notifications logger
 │   │   └── metrics.ts        # Performance metrics collector
 │   └── middleware/       # HTTP middleware
-│       └── logging-middleware.ts  # Axios logging interceptor
+│       └── logging-middleware.ts  # HTTP logging helpers (native fetch)
 ├── docs/adr/             # Architecture Decision Records
 ├── test/                 # Vitest unit + characterization tests
 ├── evaluations/          # Evaluation suite
@@ -664,7 +664,7 @@ KAITEN_LOG_METRICS=true
 - **Node.js:** Версия 20 или выше (требование `engines`)
 - **TypeScript:** 5.0+
 - **MCP SDK:** @modelcontextprotocol/sdk v1.20.0
-- **API Client:** axios с retry/backoff и AbortSignal support
+- **API Client:** нативный fetch с retry/backoff и AbortSignal support
 - **Размер:** ~600 строк TypeScript, 25KB скомпилированного кода
 
 ### MCP I/O Protocol

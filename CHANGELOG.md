@@ -23,6 +23,22 @@
   - See `docs/adr/0001-defer-tool-middleware.md` for the design and SDK spike findings.
 - No tools added or removed; the package version is unchanged.
 
+## [3.3.0] - 2026-06-04
+
+### Changed
+- **HTTP transport:** replaced `axios` + `axios-retry` with the native Node.js `fetch` API.
+  Retry/backoff (network errors, 429/408/5xx, `Retry-After`), p-queue concurrency,
+  idempotency keys, timeout, logging and metrics are preserved 1:1. Public `KaitenClient`
+  API, `KaitenError` types, and error hints are unchanged.
+- `KAITEN_INSECURE_SSL=true` now sets `NODE_TLS_REJECT_UNAUTHORIZED=0` (process-wide)
+  instead of a per-instance `https.Agent` — same effect, no `https` import.
+
+### Removed
+- Dependencies: `axios`, `axios-retry`.
+
+### Notes
+- Native `fetch` (undici) does not honor `HTTP_PROXY`/`HTTPS_PROXY` env vars (axios did).
+
 ## [3.2.0] - 2026-06-03
 
 ### Added

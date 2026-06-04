@@ -49,7 +49,7 @@ Coverage targets the pure, deterministic layers that back the 22 tools:
 - `test/utils.test.ts` — verbosity control + response truncation
 - `test/cache.test.ts` — LRU cache get/set/TTL/invalidation
 - `test/config.test.ts` — `redactSecrets` + config loading
-- `test/kaiten-client.test.ts` — API client endpoints (axios mocked, p-queue real)
+- `test/kaiten-client.test.ts` — API client endpoints (global fetch mocked, p-queue real)
 
 When adding or changing a tool, follow TDD: write/adjust the test first, watch it
 fail, then implement. Keep response-shaping logic in `src/transformers.ts` (not
@@ -94,7 +94,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
      single error funnel; group descriptions live in each group's `descriptions.ts`
 
 4. **src/kaiten-client.ts** (API client)
-   - Axios-based HTTP client with retry logic (3 retries with exponential backoff)
+   - Native fetch HTTP client with manual retry logic (3 retries with exponential backoff)
    - p-queue for concurrency control (default: 5 concurrent requests)
    - Enhanced error handling with KaitenError class (categorized error types)
    - Idempotency key support for safe retries on mutations
@@ -128,7 +128,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
    - **types.ts** - RFC 5424 log levels + TypeScript types
 
 9. **src/middleware/logging-middleware.ts**
-   - Axios interceptor for HTTP request/response logging
+   - Logging helpers for HTTP request/response (called from the fetch wrapper)
    - Automatic metrics recording for all API calls
 
 ### Key Design Patterns
