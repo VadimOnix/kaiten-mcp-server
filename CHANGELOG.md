@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+- **Card members & responsible (4 new tools, toolset 22 → 26).**
+  `kaiten_get_card_members`, `kaiten_add_card_members`,
+  `kaiten_remove_card_members`, and `kaiten_set_card_responsible` manage card
+  participants (участники) and the responsible person (ответственный) via the
+  `/cards/{id}/members` endpoints. Add/remove are batch (one API call per user,
+  continue-on-error). `set_card_responsible` auto-adds the user then PATCHes
+  `type:2`; it is additive (does not demote other responsible members), matching
+  the Kaiten API which cannot demote a responsible back to a participant — use
+  `remove_card_members` to unassign.
+
 ### Changed
 - **Architecture refactor (internal, behaviour-neutral).** The 22 tools are now
   self-contained deep modules under `src/tools/**`, each built with a minimal

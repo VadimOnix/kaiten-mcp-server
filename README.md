@@ -237,7 +237,7 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 Покажи список пространств Kaiten
 ```
 
-## Доступные инструменты (22 tools)
+## Доступные инструменты (26 tools)
 
 ### Карточки
 
@@ -265,6 +265,13 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 - `kaiten_get_card_parents` - Получить родительские карточки **[verbosity: minimal/normal/detailed]**
 - `kaiten_add_card_parents` - Привязать родителей (массив ID, continue-on-error)
 - `kaiten_remove_card_parents` - Отвязать родителей (массив ID, continue-on-error)
+
+### Участники и ответственный
+
+- `kaiten_get_card_members` - Список участников карточки с ролями (type 1 = участник, 2 = ответственный) **[verbosity]**
+- `kaiten_add_card_members` - Добавить участников (batch по user_ids[])
+- `kaiten_remove_card_members` - Удалить участников / снять ответственного (batch)
+- `kaiten_set_card_responsible` - Назначить ответственного (авто-добавляет в участники)
 
 ### Пространства и доски
 
@@ -431,7 +438,7 @@ docker mcp gateway run --catalog kaiten-catalog.yaml --servers mcp-kaiten
 
 ## Структура проекта
 
-> Архитектура: 22 инструмента — это самостоятельные «глубокие модули» в `src/tools/**`,
+> Архитектура: 26 инструментов — это самостоятельные «глубокие модули» в `src/tools/**`,
 > описанные через `defineTool`. `createServer()` собирает высокоуровневый `McpServer`
 > и регистрирует инструменты через `McpServer.registerTool`; JSON-схема каждого
 > инструмента **выводится из его Zod-схемы** (единый источник истины), поэтому
@@ -443,7 +450,7 @@ MCP Kaiten/
 │   ├── index.ts          # Тонкая точка входа (stdio → createServer)
 │   ├── server.ts         # createServer(): McpServer + ресурсы/промпт
 │   ├── container.ts      # makeCtx(): сборка ServerContext (DI)
-│   ├── tools/            # 22 инструмента как глубокие модули
+│   ├── tools/            # 26 инструментов как глубокие модули
 │   │   ├── index.ts      # ALL_TOOLS / TOOL_MAP
 │   │   ├── kit.ts        # defineTool, ServerContext, mapError
 │   │   ├── registry.ts   # registerTools() → McpServer.registerTool
