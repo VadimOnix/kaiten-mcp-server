@@ -6,11 +6,11 @@ import { UPDATE_CARD_DESC } from './descriptions.js';
 /**
  * kaiten_update_card — thin-json archetype.
  *
- * Param-building ported VERBATIM from the `kaiten_update_card` case in
- * src/server.ts: description/state/size/asap are forwarded when `!== undefined`
+ * Param-building: description/state/size/asap are forwarded when `!== undefined`
  * (so empty string description and zero state/size pass through), the rest when
- * truthy. `idempotency_key` is NOT forwarded into params (the client
- * auto-generates it); the seam JSON-wraps the returned card.
+ * truthy. A caller-supplied `idempotency_key` is forwarded into params so the
+ * client sends it as the `Idempotency-Key` header (auto-generated only when
+ * absent), making retries safe. The seam JSON-wraps the returned card.
  */
 export const updateCard = defineTool({
   name: 'kaiten_update_card',
@@ -29,6 +29,7 @@ export const updateCard = defineTool({
     if (args.asap !== undefined) params.asap = args.asap;
     if (args.owner_id) params.owner_id = args.owner_id;
     if (args.due_date) params.due_date = args.due_date;
+    if (args.idempotency_key) params.idempotency_key = args.idempotency_key;
 
     return ctx.client.updateCard(args.card_id, params, ctx.signal);
   },

@@ -42,13 +42,13 @@ describe('kaiten_update_card tool module', () => {
     expect(updateCardFn).toHaveBeenCalledWith(5, { state: 0, size: 0 }, undefined);
   });
 
-  it('does not forward idempotency_key into params', async () => {
+  it('forwards a provided idempotency_key into params', async () => {
     const updateCardFn = vi.fn().mockResolvedValue({ id: 5 });
     await updateCard.run(
       { card_id: 5, title: 'X', idempotency_key: 'abc' },
       fakeCtx({ client: { updateCard: updateCardFn } }),
     );
-    expect(updateCardFn).toHaveBeenCalledWith(5, { title: 'X' }, undefined);
+    expect(updateCardFn).toHaveBeenCalledWith(5, { title: 'X', idempotency_key: 'abc' }, undefined);
   });
 
   it('maps a thrown error', async () => {

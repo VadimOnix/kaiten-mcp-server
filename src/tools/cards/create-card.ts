@@ -6,11 +6,12 @@ import { CREATE_CARD_DESC } from './descriptions.js';
 /**
  * kaiten_create_card — thin-json archetype.
  *
- * Param-building ported VERBATIM from the `kaiten_create_card` case in
- * src/server.ts: title + board_id always; every optional field is conditionally
- * assigned (size/asap forwarded when `!== undefined`, others when truthy). The
- * handler does NOT forward `idempotency_key` into params — matching the original
- * (the client auto-generates the key); the seam JSON-wraps the returned card.
+ * Param-building: title + board_id always; every optional field is conditionally
+ * assigned (size/asap forwarded when `!== undefined`, others when truthy). A
+ * caller-supplied `idempotency_key` is forwarded into params so the client sends
+ * it as the `Idempotency-Key` header (the client falls back to an auto-generated
+ * key only when none is provided), making retries safe against duplicate cards.
+ * The seam JSON-wraps the returned card.
  */
 export const createCard = defineTool({
   name: 'kaiten_create_card',
@@ -30,6 +31,7 @@ export const createCard = defineTool({
     if (args.asap !== undefined) params.asap = args.asap;
     if (args.owner_id) params.owner_id = args.owner_id;
     if (args.due_date) params.due_date = args.due_date;
+    if (args.idempotency_key) params.idempotency_key = args.idempotency_key;
 
     return ctx.client.createCard(params, ctx.signal);
   },

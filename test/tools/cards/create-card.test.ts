@@ -58,13 +58,16 @@ describe('kaiten_create_card tool module', () => {
     );
   });
 
-  it('does not forward idempotency_key into params', async () => {
+  it('forwards a provided idempotency_key into params', async () => {
     const createCardFn = vi.fn().mockResolvedValue({ id: 1 });
     await createCard.run(
       { title: 'T', board_id: 3, idempotency_key: 'abc' },
       fakeCtx({ client: { createCard: createCardFn } }),
     );
-    expect(createCardFn).toHaveBeenCalledWith({ title: 'T', board_id: 3 }, undefined);
+    expect(createCardFn).toHaveBeenCalledWith(
+      { title: 'T', board_id: 3, idempotency_key: 'abc' },
+      undefined,
+    );
   });
 
   it('maps a thrown error', async () => {
