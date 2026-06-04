@@ -1,4 +1,4 @@
-import { KaitenCard, KaitenUser, KaitenBoard } from './kaiten-client.js';
+import { KaitenCard, KaitenUser, KaitenBoard, KaitenMember } from './kaiten-client.js';
 
 // ============================================
 // CHARACTER TRUNCATION
@@ -99,6 +99,29 @@ export function applyUserVerbosity(
         email: u.email,
         username: u.username,
         activated: u.activated,
+      }));
+  }
+}
+
+// Member verbosity (extends KaitenUser with optional type field)
+export function applyMemberVerbosity(
+  members: KaitenMember[],
+  verbosity: VerbosityLevel = 'normal'
+): any[] {
+  switch (verbosity) {
+    case 'minimal':
+      return members.map((m) => ({ id: m.id, full_name: m.full_name, type: m.type }));
+    case 'detailed':
+      return members;
+    case 'normal':
+    default:
+      return members.map((m) => ({
+        id: m.id,
+        full_name: m.full_name,
+        email: m.email,
+        username: m.username,
+        activated: m.activated,
+        type: m.type,
       }));
   }
 }

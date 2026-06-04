@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SearchCardsArgs } from '../../src/schemas.js';
-import { buildSearchParams, batchPerItem } from '../../src/tools/helpers.js';
+import { buildSearchParams, batchPerItem, batchCardMembers } from '../../src/tools/helpers.js';
 import { KaitenError, KaitenErrorType } from '../../src/kaiten-client.js';
 
 // =============================================================================
@@ -254,5 +254,33 @@ describe('batchPerItem', () => {
     const res = await batchPerItem([42], 5, 'children', 'added', run);
     const body = JSON.parse(res.content[0].text);
     expect(body.failed[0].error).toBe('plain string');
+  });
+});
+
+// =============================================================================
+// batchCardMembers — members-specific batch helper with { card_id, succeeded,
+// failed:[{ user_id, error }], summary } envelope.
+// =============================================================================
+describe('batchCardMembers', () => {
+  it('reports per-user success and failure with a summary', async () => {
+    const run = vi.fn()
+      .mockResolvedValueOnce(undefined)                       // user 2 ok
+      .mockRejectedValueOnce(new Error('nope'));              // user 3 fails
+    const res = await batchCardMembers([2, 3], 5, 'added', run);
+    const body = JSON.parse(res.content[0].text);
+    expect(body).toEqual({
+      card_id: 5,
+      succeeded: [2],
+      failed: [{ user_id: 3, error: 'nope' }],
+      summary: '1 added, 1 failed',
+    });
+    expect(res.isError).toBeFalsy();
+  });
+
+  it('marks the whole result isError when nothing succeeds', async () => {
+    const run = vi.fn().mockRejectedValue(new Error('boom'));
+    const res = await batchCardMembers([2], 5, 'removed', run);
+    expect(res.isError).toBe(true);
+    expect(JSON.parse(res.content[0].text).summary).toBe('0 removed, 1 failed');
   });
 });

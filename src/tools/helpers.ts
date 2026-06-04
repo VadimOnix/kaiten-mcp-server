@@ -172,3 +172,48 @@ export async function batchPerItem(
     ...(succeeded.length === 0 ? { isError: true } : {}),
   };
 }
+
+/**
+ * Batch helper for card-member mutations. Runs `run` once per user id, in order,
+ * collecting per-user successes/failures. Kept separate from {@link batchPerItem}
+ * (which is byte-locked to the children/parents snapshots) so the members shape
+ * is { card_id, succeeded, failed:[{ user_id, error }], summary }.
+ */
+export async function batchCardMembers(
+  userIds: number[],
+  cardId: number,
+  verb: string,
+  run: (userId: number) => Promise<unknown>,
+): Promise<ToolResult> {
+  const succeeded: number[] = [];
+  const failed: Array<Record<string, number | string>> = [];
+
+  for (const id of userIds) {
+    try {
+      await run(id);
+      succeeded.push(id);
+    } catch (err) {
+      failed.push({
+        user_id: id,
+        error:
+          err instanceof KaitenError
+            ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+            : err instanceof Error
+              ? err.message
+              : String(err),
+      });
+    }
+  }
+
+  const result = {
+    card_id: cardId,
+    succeeded,
+    failed,
+    summary: `${succeeded.length} ${verb}, ${failed.length} failed`,
+  };
+
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    ...(succeeded.length === 0 ? { isError: true } : {}),
+  };
+}

@@ -5,6 +5,7 @@ import {
   applyCardVerbosityMinimal,
   applyUserVerbosity,
   applyBoardVerbosity,
+  applyMemberVerbosity,
 } from '../src/utils';
 import type { KaitenCard, KaitenUser, KaitenBoard } from '../src/kaiten-client';
 
@@ -103,5 +104,22 @@ describe('applyBoardVerbosity', () => {
 
   it('detailed returns the raw boards', () => {
     expect(applyBoardVerbosity(boards, 'detailed')).toBe(boards);
+  });
+});
+
+describe('applyMemberVerbosity', () => {
+  const members = [
+    { id: 7, full_name: 'Ann', email: 'a@x.io', username: 'ann', activated: true, type: 2 },
+  ];
+  it('keeps only id, full_name, type at minimal', () => {
+    expect(applyMemberVerbosity(members, 'minimal')).toEqual([{ id: 7, full_name: 'Ann', type: 2 }]);
+  });
+  it('keeps essential fields plus type at normal (default)', () => {
+    expect(applyMemberVerbosity(members)).toEqual([
+      { id: 7, full_name: 'Ann', email: 'a@x.io', username: 'ann', activated: true, type: 2 },
+    ]);
+  });
+  it('returns members untouched at detailed', () => {
+    expect(applyMemberVerbosity(members, 'detailed')).toBe(members);
   });
 });
