@@ -16,6 +16,7 @@ import {
   simplifyUser,
   simplifyCard,
 } from './transformers.js';
+import { VERSION } from './version.js';
 
 // Config is loaded and validated in config.ts. The KaitenClient is built once
 // in container.ts; here we only need the default-space id for resource listing.
@@ -111,7 +112,7 @@ export function createServer(): McpServer {
   const server = new McpServer(
     {
       name: 'kaiten-mcp-server',
-      version: '3.0.0',
+      version: VERSION,
     },
     {
       capabilities: {

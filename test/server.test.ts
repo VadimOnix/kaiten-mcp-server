@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createRequire } from 'module';
 import { installFetchMock, jsonResponse } from './helpers/fetch-mock';
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -57,6 +58,15 @@ describe('protocol contract', () => {
     for (const t of tools) {
       expect(names.has(t.name), `ALL_TOOLS missing entry for ${t.name}`).toBe(true);
     }
+  });
+
+  it('advertises the package.json version (no hardcoded version drift)', async () => {
+    const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
+    const client = await connect();
+    expect(client.getServerVersion()).toMatchObject({
+      name: 'kaiten-mcp-server',
+      version: pkg.version,
+    });
   });
 
   // Schema-fidelity guard for the Zod -> JSON-Schema derivation done by

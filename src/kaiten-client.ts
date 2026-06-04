@@ -1,12 +1,9 @@
 import { default as PQueue } from 'p-queue';
 import { randomBytes } from 'crypto';
-import { createRequire } from 'module';
 import { config, safeLog } from './config.js';
 import { logger } from './logging/index.js';
 import { logHttpRequest, logHttpResponse, logHttpError } from './middleware/logging-middleware.js';
-
-// Single source of truth for the package version (drives the User-Agent header).
-const { version: PKG_VERSION } = createRequire(import.meta.url)('../package.json') as { version: string };
+import { VERSION } from './version.js';
 
 // ============================================
 // ENHANCED ERROR TYPES
@@ -209,7 +206,7 @@ export class KaitenClient {
     this.defaultHeaders = {
       'Authorization': `Bearer ${apiToken}`,
       'Content-Type': 'application/json',
-      'User-Agent': `mcp-kaiten/${PKG_VERSION} (+https://github.com/VadimOnix/kaiten-mcp-server)`,
+      'User-Agent': `mcp-kaiten/${VERSION} (+https://github.com/VadimOnix/kaiten-mcp-server)`,
     };
 
     if (config.KAITEN_INSECURE_SSL) {
