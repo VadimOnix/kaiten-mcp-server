@@ -103,6 +103,29 @@ export const RemoveCardParentsSchema = z.object({
     .describe('IDs of parent cards to detach (one API call per ID)'),
 }).strict();
 
+export const GetCardMembersSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card whose members to list'),
+  verbosity: VerbosityEnum,
+}).strict();
+
+export const AddCardMembersSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card to add members to'),
+  user_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of users to add as card members (one API call per ID)'),
+}).strict();
+
+export const RemoveCardMembersSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card to remove members from'),
+  user_ids: z.array(z.number().positive().int()).min(1)
+    .describe('IDs of users to remove from the card (one API call per ID)'),
+}).strict();
+
+export const SetCardResponsibleSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card'),
+  user_id: z.number().positive().int()
+    .describe('The ID of the user to mark responsible (auto-added as a member if not already one)'),
+}).strict();
+
 export const SearchCardsSchema = z.object({
   // Text search
   query: z.string().optional().describe('Search query for partial case-insensitive matching'),
@@ -245,3 +268,7 @@ export type ListColumnsArgs = z.infer<typeof ListColumnsSchema>;
 export type ListLanesArgs = z.infer<typeof ListLanesSchema>;
 export type ListTypesArgs = z.infer<typeof ListTypesSchema>;
 export type ListUsersArgs = z.infer<typeof ListUsersSchema>;
+export type GetCardMembersArgs = z.infer<typeof GetCardMembersSchema>;
+export type AddCardMembersArgs = z.infer<typeof AddCardMembersSchema>;
+export type RemoveCardMembersArgs = z.infer<typeof RemoveCardMembersSchema>;
+export type SetCardResponsibleArgs = z.infer<typeof SetCardResponsibleSchema>;

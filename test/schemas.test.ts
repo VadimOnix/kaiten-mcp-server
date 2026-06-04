@@ -20,6 +20,10 @@ import {
   GetCardParentsSchema,
   AddCardParentsSchema,
   RemoveCardParentsSchema,
+  GetCardMembersSchema,
+  AddCardMembersSchema,
+  RemoveCardMembersSchema,
+  SetCardResponsibleSchema,
 } from '../src/schemas';
 
 // Input-validation contract for the 22 MCP tools.
@@ -341,5 +345,50 @@ describe('RemoveCardParentsSchema', () => {
 
   it('rejects unknown extra keys (strict)', () => {
     expect(() => RemoveCardParentsSchema.parse({ card_id: 1, parent_card_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('GetCardMembersSchema', () => {
+  it('accepts a positive card_id; verbosity optional', () => {
+    expect(GetCardMembersSchema.parse({ card_id: 5 })).toEqual({ card_id: 5, verbosity: 'normal' });
+    expect(GetCardMembersSchema.parse({ card_id: 5, verbosity: 'detailed' }).verbosity).toBe('detailed');
+  });
+  it('rejects non-positive card_id and unknown keys', () => {
+    expect(() => GetCardMembersSchema.parse({ card_id: 0 })).toThrow();
+    expect(() => GetCardMembersSchema.parse({ card_id: 5, bogus: true })).toThrow();
+  });
+});
+
+describe('AddCardMembersSchema', () => {
+  it('accepts card_id and a non-empty user_ids array', () => {
+    expect(AddCardMembersSchema.parse({ card_id: 1, user_ids: [2, 3] })).toEqual({ card_id: 1, user_ids: [2, 3] });
+  });
+  it('rejects empty / non-int ids, missing user_ids, and unknown keys', () => {
+    expect(() => AddCardMembersSchema.parse({ card_id: 1, user_ids: [] })).toThrow();
+    expect(() => AddCardMembersSchema.parse({ card_id: 1, user_ids: [0] })).toThrow();
+    expect(() => AddCardMembersSchema.parse({ card_id: 1, user_ids: [1.5] })).toThrow();
+    expect(() => AddCardMembersSchema.parse({ card_id: 1 })).toThrow();
+    expect(() => AddCardMembersSchema.parse({ card_id: 1, user_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('RemoveCardMembersSchema', () => {
+  it('accepts card_id and a non-empty user_ids array', () => {
+    expect(RemoveCardMembersSchema.parse({ card_id: 1, user_ids: [2] })).toEqual({ card_id: 1, user_ids: [2] });
+  });
+  it('rejects empty user_ids and unknown keys', () => {
+    expect(() => RemoveCardMembersSchema.parse({ card_id: 1, user_ids: [] })).toThrow();
+    expect(() => RemoveCardMembersSchema.parse({ card_id: 1, user_ids: [2], bogus: true })).toThrow();
+  });
+});
+
+describe('SetCardResponsibleSchema', () => {
+  it('accepts positive card_id and user_id', () => {
+    expect(SetCardResponsibleSchema.parse({ card_id: 1, user_id: 2 })).toEqual({ card_id: 1, user_id: 2 });
+  });
+  it('rejects non-positive ids, missing fields, and unknown keys', () => {
+    expect(() => SetCardResponsibleSchema.parse({ card_id: 1 })).toThrow();
+    expect(() => SetCardResponsibleSchema.parse({ card_id: 0, user_id: 2 })).toThrow();
+    expect(() => SetCardResponsibleSchema.parse({ card_id: 1, user_id: 2, bogus: true })).toThrow();
   });
 });
