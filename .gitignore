@@ -16,6 +16,9 @@ Context/
 test-*.js
 test-*.ts
 
+# Throwaway local e2e harness (mock Kaiten + MCP stdio client)
+e2e/
+
 # Logs
 logs/*.log
 logs/*.csv
