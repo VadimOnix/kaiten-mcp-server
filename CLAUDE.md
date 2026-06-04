@@ -8,7 +8,7 @@ This is an MCP (Model Context Protocol) server for Kaiten API integration. It pr
 
 The toolset was deliberately trimmed from 26 to 16: the cache-invalidation tools, runtime diagnostics/log-level tools, redundant card listings (`get_space_cards`/`get_board_cards`, superseded by `search_cards`), and detail getters (`get_space`/`get_board`) were removed. Logging is now configured only via environment variables, and the cache relies on automatic TTL expiry. Pure response-shaping helpers live in `src/transformers.ts`; the test suite (Vitest) lives in `test/` and is run with `npm test`.
 
-**Current Version:** 3.2.0
+**Current Version:** 3.3.0
 
 ## Development Commands
 
