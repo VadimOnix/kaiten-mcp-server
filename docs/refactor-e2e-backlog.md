@@ -14,7 +14,7 @@
 | P1 error-envelope | ✅ FIXED | `src/tools/kit.ts` — ветка `KaitenError` → `{ error: error.toJSON() }` |
 | P1 idempotency_key | ✅ FIXED | `src/tools/cards/{create,update}-card.ts` форвардят `idempotency_key` |
 | P2 detailed search | ✅ FIXED | `src/tools/render.ts` — `renderSearchSummary` устойчив к сырым карточкам |
-| P3 канал ошибок | 📝 doc-only | не баг; задокументировать контракт |
+| P3 канал ошибок | ✅ documented | README §«Обработка ошибок» — два канала (`-32602` vs `isError`) |
 | P3 Node-версия | 📝 DX | предложен `.nvmrc` |
 
 Реконсиляция с native-fetch: ветка перенесена на main (v3.3.0, fetch вместо axios);
@@ -132,8 +132,10 @@ PATCH /cards/.../comments -> Idempotency-Key: KEY-COMMENT-UPD ✅
 **Риск.** Клиент должен обрабатывать ДВА разных канала ошибок на инструмент. Плюс
 неизвестные ключи молча отбрасываются (раньше был бы `VALIDATION_ERROR`).
 
-**Действие.** Не баг, но задокументировать контракт ошибок в README/TOOLS.md,
-чтобы интеграторы не ждали единый envelope.
+**Действие.** ✅ Сделано — README, секция «Обработка ошибок»: описаны оба канала
+(`-32602` для невалидного ввода/неизвестного инструмента vs `isError`-envelope для
+бизнес/API-ошибок), значения `type`, поле `hint`, и continue-on-error для пакетных
+связей. Со ссылкой на ADR 0001.
 
 ---
 

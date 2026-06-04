@@ -507,6 +507,59 @@ MCP Kaiten/
 }
 ```
 
+## Обработка ошибок
+
+Сервер использует **два разных канала ошибок** — это важно учитывать при интеграции, потому что клиент должен обрабатывать оба.
+
+### 1. Невалидный ввод → протокольная ошибка JSON-RPC `-32602`
+
+Если аргументы инструмента не проходят схему (неверный тип, отсутствует обязательное поле, или вызван несуществующий инструмент), запрос отклоняется **на уровне протокола MCP** кодом `-32602`. В клиентском SDK это приходит как **отклонённый промис (исключение)**, а не как обычный результат:
+
+```jsonc
+// JSON-RPC error response (не result)
+{ "jsonrpc": "2.0", "id": 1, "error": { "code": -32602, "message": "Invalid arguments for tool kaiten_get_card: ..." } }
+```
+
+- Неизвестные/лишние ключи **молча отбрасываются** (схема всё равно объявляет `additionalProperties: false`, так что корректные клиенты предупреждены), после чего вызов продолжается.
+- Несуществующий инструмент → `-32602: Tool <name> not found`.
+
+### 2. Бизнес/API-ошибки → результат с `isError: true`
+
+Ошибки, возникшие при обращении к Kaiten API (или иные ошибки во время выполнения), возвращаются как **обычный результат инструмента** с флагом `isError: true` и JSON-конвертом в теле:
+
+```jsonc
+{
+  "error": {
+    "type": "NOT_FOUND",          // категория (см. ниже)
+    "message": "Resource not found",
+    "status": 404,                // HTTP-статус (если есть)
+    "details": { ... },           // тело ответа API (если есть)
+    "hint": "Check that the card_id, board_id, space_id, or other resource ID is correct"
+  }
+}
+```
+
+Поле `type` принимает одно из значений: `AUTH_ERROR` (401/403), `NOT_FOUND` (404), `VALIDATION_ERROR` (422), `RATE_LIMITED` (429), `TIMEOUT`, `NETWORK_ERROR`, `API_ERROR` (5xx и прочее), `UNKNOWN_ERROR` (непредвиденное). Поле `hint` содержит подсказку по устранению, когда она применима.
+
+> Чисто схемные ошибки (`VALIDATION_ERROR`) тоже могут прийти этим каналом, если их сгенерировал строгий повторный разбор внутри `def.run()` — но для declared-полей они эквивалентны каналу `-32602` выше.
+
+### Пакетные операции со связями (continue-on-error)
+
+Инструменты `kaiten_add/remove_card_children` и `kaiten_add/remove_card_parents` делают **по одному вызову API на каждый ID** и не прерываются на первой ошибке. Они возвращают агрегированный результат, где ошибки по отдельным элементам встроены в тело (а не общий `isError`, если хоть один элемент успешен):
+
+```jsonc
+{
+  "parent_card_id": 5001,
+  "succeeded": [5002],
+  "failed": [{ "child_card_id": 999999, "error": "Validation error — Check the request parameters for correctness" }],
+  "summary": "1 added, 1 failed"
+}
+```
+
+Флаг `isError: true` ставится только если **ни один** элемент не прошёл.
+
+> Подробности двухстадийной валидации (SDK pre-validate + строгий re-parse) — в [docs/adr/0001-defer-tool-middleware.md](docs/adr/0001-defer-tool-middleware.md).
+
 ## Устранение неполадок
 
 ### "No server info found" / "Server not yet created" (Docker MCP Gateway)
