@@ -128,53 +128,41 @@ export const SetCardResponsibleSchema = z.object({
 
 export const SearchCardsSchema = z.object({
   // Text search
-  query: z.string().optional().describe('Search query for partial case-insensitive matching'),
+  query: z.string().optional().describe('Partial case-insensitive match on title/description/comments'),
 
   // Basic filters
-  space_id: z.number().optional().describe('Filter by space ID. Omit for default space, 0 for all spaces'),
-  board_id: z.number().positive().int().optional().describe('Filter by board ID (RECOMMENDED to avoid large responses)'),
-  column_id: z.number().positive().int().optional().describe('Filter by column ID (optional)'),
-  lane_id: z.number().positive().int().optional().describe('Filter by lane ID (optional)'),
-  title: z.string().optional().describe('Filter by title (optional)'),
-  state: z.number().optional().describe('Filter by state: 1=queued, 2=inProgress, 3=done (optional)'),
-  owner_id: z.number().positive().int().optional().describe('Filter by owner ID (optional)'),
-  type_id: z.number().positive().int().optional().describe('Filter by card type ID (optional)'),
-  condition: z.number().min(1).max(2).optional().describe('Filter by condition: 1=active (default), 2=archived'),
+  space_id: z.number().optional().describe('Space ID; omit for default space, 0 = all spaces'),
+  board_id: z.number().positive().int().optional().describe('Board ID (recommended, keeps results small)'),
+  column_id: z.number().positive().int().optional().describe('Column ID'),
+  lane_id: z.number().positive().int().optional().describe('Lane ID'),
+  title: z.string().optional().describe('Title filter'),
+  state: z.number().optional().describe('State: 1=queued, 2=inProgress, 3=done'),
+  owner_id: z.number().positive().int().optional().describe('Owner user ID'),
+  type_id: z.number().positive().int().optional().describe('Card type ID'),
+  condition: z.number().min(1).max(2).optional().describe('1=active (default), 2=archived'),
 
-  // Date filters (ISO 8601 format)
-  created_before: z.string().optional().describe('Created before date (ISO 8601 format, e.g., "2025-10-11T23:59:59Z")'),
-  created_after: z.string().optional().describe('Created after date (ISO 8601 format, e.g., "2025-10-01T00:00:00Z")'),
-  updated_before: z.string().optional().describe('Updated before date (ISO 8601 format)'),
-  updated_after: z.string().optional().describe('Updated after date (ISO 8601 format)'),
-  due_date_before: z.string().optional().describe('Due date before (ISO 8601 format)'),
-  due_date_after: z.string().optional().describe('Due date after (ISO 8601 format)'),
-  last_moved_to_done_at_before: z.string().optional().describe('Last moved to done before date (ISO 8601 format)'),
-  last_moved_to_done_at_after: z.string().optional().describe('Last moved to done after date (ISO 8601 format)'),
+  // Date filters (ISO 8601)
+  created_before: z.string().optional().describe('Created before (ISO 8601)'),
+  created_after: z.string().optional().describe('Created after (ISO 8601)'),
+  updated_before: z.string().optional().describe('Updated before (ISO 8601)'),
+  updated_after: z.string().optional().describe('Updated after (ISO 8601)'),
+  due_date_before: z.string().optional().describe('Due before (ISO 8601)'),
+  due_date_after: z.string().optional().describe('Due after (ISO 8601)'),
 
   // Boolean flags
-  asap: z.boolean().optional().describe('Filter by ASAP marker (true=only ASAP cards)'),
-  archived: z.boolean().optional().describe('Filter by archived flag'),
-  overdue: z.boolean().optional().describe('Filter by overdue cards (true=only overdue)'),
-  done_on_time: z.boolean().optional().describe('Filter by completed on time (true=only done on time)'),
-  with_due_date: z.boolean().optional().describe('Filter cards with due date set (true=only with due date)'),
+  asap: z.boolean().optional().describe('Only ASAP cards'),
+  overdue: z.boolean().optional().describe('Only overdue cards'),
 
-  // Multiple IDs (comma-separated strings)
-  owner_ids: z.string().optional().describe('Filter by multiple owner IDs (comma-separated, e.g., "123,456,789")'),
-  member_ids: z.string().optional().describe('Filter by member IDs (comma-separated)'),
-  column_ids: z.string().optional().describe('Filter by multiple column IDs (comma-separated)'),
-  type_ids: z.string().optional().describe('Filter by multiple type IDs (comma-separated)'),
-  tag_ids: z.string().optional().describe('Filter by tag IDs (comma-separated)'),
-
-  // Exclude filters
-  exclude_board_ids: z.string().optional().describe('Exclude board IDs (comma-separated)'),
-  exclude_owner_ids: z.string().optional().describe('Exclude owner IDs (comma-separated)'),
-  exclude_card_ids: z.string().optional().describe('Exclude card IDs (comma-separated)'),
+  // Multiple IDs (comma-separated)
+  owner_ids: z.string().optional().describe('Owner IDs, comma-separated (e.g. "123,456")'),
+  member_ids: z.string().optional().describe('Member IDs, comma-separated'),
+  tag_ids: z.string().optional().describe('Tag IDs, comma-separated'),
 
   // Sorting and pagination
   sort_by: z.enum(['created', 'updated', 'title']).optional().describe('Sort field (default: created)'),
   sort_direction: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
-  limit: z.number().positive().int().max(20).optional().describe('Maximum number of cards to return (default: 10, max: 20 for context economy)'),
-  skip: z.number().min(0).int().optional().describe('Number of cards to skip for pagination (default: 0)'),
+  limit: z.number().positive().int().max(20).optional().describe('Max cards (default 10, max 20)'),
+  skip: z.number().min(0).int().optional().describe('Skip N for pagination (default 0)'),
 
   // Response control
   verbosity: VerbosityEnum,

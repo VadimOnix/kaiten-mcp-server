@@ -52,29 +52,15 @@ export function buildSearchParams(
   if (a.updated_after) searchParams.updated_after = a.updated_after;
   if (a.due_date_before) searchParams.due_date_before = a.due_date_before;
   if (a.due_date_after) searchParams.due_date_after = a.due_date_after;
-  if (a.last_moved_to_done_at_before)
-    searchParams.last_moved_to_done_at_before = a.last_moved_to_done_at_before;
-  if (a.last_moved_to_done_at_after)
-    searchParams.last_moved_to_done_at_after = a.last_moved_to_done_at_after;
 
   // Boolean flags
   if (a.asap !== undefined) searchParams.asap = a.asap;
-  if (a.archived !== undefined) searchParams.archived = a.archived;
   if (a.overdue !== undefined) searchParams.overdue = a.overdue;
-  if (a.done_on_time !== undefined) searchParams.done_on_time = a.done_on_time;
-  if (a.with_due_date !== undefined) searchParams.with_due_date = a.with_due_date;
 
   // Multiple IDs (comma-separated)
   if (a.owner_ids) searchParams.owner_ids = a.owner_ids;
   if (a.member_ids) searchParams.member_ids = a.member_ids;
-  if (a.column_ids) searchParams.column_ids = a.column_ids;
-  if (a.type_ids) searchParams.type_ids = a.type_ids;
   if (a.tag_ids) searchParams.tag_ids = a.tag_ids;
-
-  // Exclude filters
-  if (a.exclude_board_ids) searchParams.exclude_board_ids = a.exclude_board_ids;
-  if (a.exclude_owner_ids) searchParams.exclude_owner_ids = a.exclude_owner_ids;
-  if (a.exclude_card_ids) searchParams.exclude_card_ids = a.exclude_card_ids;
 
   // Sorting and pagination
   if (a.sort_by) searchParams.sort_by = a.sort_by;

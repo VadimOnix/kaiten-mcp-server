@@ -82,18 +82,12 @@ describe('buildSearchParams', () => {
     const p = buildSearchParams(
       {
         asap: false,
-        archived: false,
         overdue: true,
-        done_on_time: false,
-        with_due_date: true,
       } as SearchCardsArgs,
       undefined,
     );
     expect(p.asap).toBe(false);
-    expect(p.archived).toBe(false);
     expect(p.overdue).toBe(true);
-    expect(p.done_on_time).toBe(false);
-    expect(p.with_due_date).toBe(true);
   });
 
   it('maps date filters', () => {
@@ -105,8 +99,6 @@ describe('buildSearchParams', () => {
         updated_after: 'd',
         due_date_before: 'e',
         due_date_after: 'f',
-        last_moved_to_done_at_before: 'g',
-        last_moved_to_done_at_after: 'h',
       } as SearchCardsArgs,
       undefined,
     );
@@ -116,21 +108,14 @@ describe('buildSearchParams', () => {
     expect(p.updated_after).toBe('d');
     expect(p.due_date_before).toBe('e');
     expect(p.due_date_after).toBe('f');
-    expect(p.last_moved_to_done_at_before).toBe('g');
-    expect(p.last_moved_to_done_at_after).toBe('h');
   });
 
-  it('maps multi-ID, exclude, sort and pagination fields', () => {
+  it('maps multi-ID, sort and pagination fields', () => {
     const p = buildSearchParams(
       {
         owner_ids: '1,2',
         member_ids: '3,4',
-        column_ids: '5,6',
-        type_ids: '7,8',
         tag_ids: '9,10',
-        exclude_board_ids: '11',
-        exclude_owner_ids: '12',
-        exclude_card_ids: '13',
         sort_by: 'created',
         sort_direction: 'desc',
         limit: 25,
@@ -140,12 +125,7 @@ describe('buildSearchParams', () => {
     );
     expect(p.owner_ids).toBe('1,2');
     expect(p.member_ids).toBe('3,4');
-    expect(p.column_ids).toBe('5,6');
-    expect(p.type_ids).toBe('7,8');
     expect(p.tag_ids).toBe('9,10');
-    expect(p.exclude_board_ids).toBe('11');
-    expect(p.exclude_owner_ids).toBe('12');
-    expect(p.exclude_card_ids).toBe('13');
     expect(p.sort_by).toBe('created');
     expect(p.sort_direction).toBe('desc');
     expect(p.limit).toBe(25);

@@ -92,17 +92,16 @@ const fakeCtx = (over: Record<string, unknown> = {}) =>
 // 1. ADVERTISED FOOTPRINT BUDGET (ratchets — tighten as the surface shrinks)
 // ===========================================================================
 describe('eval: advertised footprint budget', () => {
-  // Measured baselines (chars), captured 2026-06-05 after trimming the relations
-  // + members embedded manuals: wire=31,171 desc=11,008 schema=15,908 instr=1,137.
+  // Measured baselines (chars), captured 2026-06-05 after the search_cards param
+  // slim (36 -> 26 props): wire=29,776 desc=11,025 schema=14,496 instr=1,137.
   // Ceilings sit just above the baseline to catch regressions while leaving a
-  // little headroom. RATCHET DOWN when the surface shrinks (e.g. after the
-  // search_cards param slim, which will pull SCHEMA + PER_TOOL down further);
-  // raise ONLY with a written justification.
-  const WIRE_CEILING = 31_500;
-  const SCHEMA_TOTAL_CEILING = 16_000;
+  // little headroom. RATCHET DOWN when the surface shrinks; raise ONLY with a
+  // written justification.
+  const WIRE_CEILING = 30_000;
+  const SCHEMA_TOTAL_CEILING = 14_700;
   const DESC_TOTAL_CEILING = 11_200;
   const INSTRUCTIONS_CEILING = 1_600;
-  const PER_TOOL_CEILING = 4_700; // search_cards (heaviest) = 4,547 today
+  const PER_TOOL_CEILING = 3_300; // search_cards (heaviest) = 3,152 today
 
   it('reports the footprint breakdown and stays under the wire ceiling', async () => {
     const fp = await measureFootprint();

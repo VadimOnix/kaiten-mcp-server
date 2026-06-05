@@ -51,6 +51,61 @@ describe('kaiten_search_cards tool module', () => {
     expect(res.content[0].text).toContain('1. Found Card');
   });
 
+  // Context-economy slimming: 10 niche params were removed from the search
+  // surface (analytics/derivable, the archived boolean redundant with
+  // condition=2, the exclude_* negative filters, and the plural column_ids/
+  // type_ids). The strict schema must now REJECT them so they can't silently
+  // re-creep, and so the advertised schema stays small.
+  const REMOVED_PARAMS: Array<[string, unknown]> = [
+    ['archived', true],
+    ['done_on_time', true],
+    ['with_due_date', true],
+    ['last_moved_to_done_at_before', '2025-01-01T00:00:00Z'],
+    ['last_moved_to_done_at_after', '2025-01-01T00:00:00Z'],
+    ['exclude_board_ids', '1,2'],
+    ['exclude_owner_ids', '3,4'],
+    ['exclude_card_ids', '5,6'],
+    ['column_ids', '7,8'],
+    ['type_ids', '9,10'],
+  ];
+
+  for (const [param, value] of REMOVED_PARAMS) {
+    it(`rejects the removed niche param "${param}" via the strict schema`, async () => {
+      const res = await searchCards.run(
+        { [param]: value } as any,
+        fakeCtx({ client: { searchCards: vi.fn().mockResolvedValue([]) } }),
+      );
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text).toContain('VALIDATION_ERROR');
+    });
+  }
+
+  // The common filters that were KEPT must still validate and forward.
+  it('still accepts the kept filters (condition, dates, owner/member/tag IDs, overdue, sort)', async () => {
+    const searchCardsFn = vi.fn().mockResolvedValue([]);
+    const res = await searchCards.run(
+      {
+        condition: 2,
+        created_after: '2025-01-01T00:00:00Z',
+        due_date_before: '2025-12-31T00:00:00Z',
+        owner_ids: '1,2',
+        member_ids: '3,4',
+        tag_ids: '5,6',
+        overdue: true,
+        asap: true,
+        sort_by: 'updated',
+        sort_direction: 'asc',
+      },
+      fakeCtx({ client: { searchCards: searchCardsFn } }),
+    );
+    expect(res.isError).toBeFalsy();
+    const params = searchCardsFn.mock.calls[0][0];
+    expect(params.condition).toBe(2);
+    expect(params.owner_ids).toBe('1,2');
+    expect(params.tag_ids).toBe('5,6');
+    expect(params.overdue).toBe(true);
+  });
+
   it('does NOT warn when effectiveLimit <= 20', async () => {
     const searchCardsFn = vi.fn().mockResolvedValue([]);
     const warning = vi.fn();
