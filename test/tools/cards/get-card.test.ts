@@ -32,6 +32,17 @@ describe('kaiten_get_card tool module', () => {
     expect(res.content[0].text).toBe(JSON.stringify(card, null, 2));
   });
 
+  it('attaches the raw card as structuredContent in BOTH markdown and json modes (MCP spec 2025-11-25)', async () => {
+    const card = { id: 5, title: 'Demo', board_id: 3 };
+    // markdown (default): human text + machine mirror
+    const md = await getCard.run({ card_id: 5 }, fakeCtx({ client: { getCard: vi.fn().mockResolvedValue(card) } }));
+    expect(md.content[0].text).toContain('# Demo');
+    expect(md.structuredContent).toEqual(card);
+    // json mode: seam auto-mirrors the plain object return
+    const json = await getCard.run({ card_id: 5, format: 'json' }, fakeCtx({ client: { getCard: vi.fn().mockResolvedValue(card) } }));
+    expect(json.structuredContent).toEqual(card);
+  });
+
   it('maps a thrown error to an error result', async () => {
     const getCardFn = vi.fn().mockRejectedValue(new Error('boom'));
     const res = await getCard.run({ card_id: 5 }, fakeCtx({ client: { getCard: getCardFn } }));

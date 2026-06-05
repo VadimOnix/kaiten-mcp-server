@@ -142,6 +142,18 @@ describe('protocol contract', () => {
     expect((res.content as any[])[0].text).toContain('# Demo');
   });
 
+  // structuredContent (MCP spec 2025-11-25) must survive the SDK round-trip to a
+  // connected client. We advertise NO outputSchema, so the SDK forwards it
+  // unvalidated (mcp.js validateToolOutput early-returns when outputSchema is
+  // absent) — confirming the machine-readable mirror reaches real clients.
+  it('forwards structuredContent on a read-only tool to the connected client', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 5, title: 'Demo' }));
+    const client = await connect();
+    const res = await client.callTool({ name: 'kaiten_get_card', arguments: { card_id: 5 } });
+    expect(res.isError).toBeFalsy();
+    expect(res.structuredContent).toMatchObject({ id: 5, title: 'Demo' });
+  });
+
   it('maps a Kaiten 404 to an error result mentioning not found', async () => {
     // The live client maps a 404 Response into a KaitenError(NOT_FOUND).
     fetchMock.mockResolvedValueOnce(jsonResponse({}, { status: 404 }));

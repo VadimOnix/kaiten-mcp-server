@@ -4,6 +4,7 @@ import {
   defineTool,
   mapError,
   text,
+  textWithData,
   type ServerContext,
   type ToolResult,
 } from '../../src/tools/kit.js';
@@ -253,6 +254,92 @@ describe('defineTool wrap logic', () => {
       ],
       isError: true,
     });
+  });
+});
+
+// =============================================================================
+// structuredContent (MCP spec 2025-11-25): read-only tools mirror their JSON
+// return value into `structuredContent` so programmatic clients can consume it
+// without re-parsing the text block. We do NOT advertise an outputSchema, so
+// this costs nothing on connect and the SDK passes it through unvalidated.
+// Mutations stay lean (no structuredContent). The text block is unchanged
+// (arrays stay bare arrays) to keep the envelope non-breaking.
+// =============================================================================
+describe('defineTool structuredContent (read-only tools)', () => {
+  const readTool = (handler: () => unknown) =>
+    defineTool({
+      name: 'kaiten_read',
+      description: 'a read-only tool',
+      schema: z.object({}),
+      annotations: { readOnly: true },
+      handler,
+    });
+
+  it('mirrors a plain object return into structuredContent (same shape as text)', async () => {
+    const value = { id: 9, title: 'Card', board_id: 3 };
+    const res = await readTool(() => value).run({}, ctx);
+    expect(res.structuredContent).toEqual(value);
+    // text block is unchanged (pretty JSON of the same value)
+    expect(res.content[0].text).toBe(JSON.stringify(value, null, 2));
+    expect(res.isError).toBeFalsy();
+  });
+
+  it('wraps an array return as { items } in structuredContent, text stays a bare array', async () => {
+    const value = [{ id: 1 }, { id: 2 }];
+    const res = await readTool(() => value).run({}, ctx);
+    expect(res.structuredContent).toEqual({ items: value });
+    // text block must remain a bare array (non-breaking for existing clients)
+    expect(JSON.parse(res.content[0].text)).toEqual(value);
+  });
+
+  it('does NOT attach structuredContent for non-read-only tools (mutations stay lean)', async () => {
+    const tool = defineTool({
+      name: 'kaiten_mutate',
+      description: 'a mutating tool',
+      schema: z.object({}),
+      annotations: { destructive: true },
+      handler: () => ({ deleted: true }),
+    });
+    const res = await tool.run({}, ctx);
+    expect(res.structuredContent).toBeUndefined();
+  });
+
+  it('does NOT attach structuredContent when a read-only tool returns text() markup', async () => {
+    const res = await readTool(() => text('# rendered')).run({}, ctx);
+    expect(res.structuredContent).toBeUndefined();
+    expect(res.content[0].text).toBe('# rendered');
+  });
+
+  it('does NOT attach structuredContent for a primitive / null return', async () => {
+    const res = await readTool(() => null as unknown as object).run({}, ctx);
+    expect(res.structuredContent).toBeUndefined();
+    expect(res.content[0].text).toBe('null');
+  });
+
+  it('does NOT inject structuredContent into a raw ToolResult passthrough', async () => {
+    const raw: ToolResult = { content: [{ type: 'text', text: 'pre-rendered' }] };
+    const res = await readTool(() => raw).run({}, ctx);
+    expect(res).toBe(raw);
+    expect(res.structuredContent).toBeUndefined();
+  });
+});
+
+describe('textWithData() — human text + machine-readable mirror', () => {
+  it('keeps the rendered text and mirrors an object into structuredContent', () => {
+    const res = textWithData('# Card sheet', { id: 5, title: 'Demo' });
+    expect(res.content).toEqual([{ type: 'text', text: '# Card sheet' }]);
+    expect(res.structuredContent).toEqual({ id: 5, title: 'Demo' });
+  });
+
+  it('wraps an array as { items } in structuredContent, text unchanged', () => {
+    const res = textWithData('Found 2 cards', [{ id: 1 }, { id: 2 }]);
+    expect(res.content[0].text).toBe('Found 2 cards');
+    expect(res.structuredContent).toEqual({ items: [{ id: 1 }, { id: 2 }] });
+  });
+
+  it('omits structuredContent for non-object data', () => {
+    const res = textWithData('plain', 'not-an-object' as unknown);
+    expect(res.structuredContent).toBeUndefined();
   });
 });
 

@@ -35,6 +35,22 @@ describe('kaiten_search_cards tool module', () => {
     expect(params.query).toBe('Found');
   });
 
+  it('mirrors the verbosity-applied cards into structuredContent.items (MCP spec 2025-11-25)', async () => {
+    const searchCardsFn = vi
+      .fn()
+      .mockResolvedValue([{ id: 7, title: 'Found Card', board: { title: 'Board A' } }]);
+    const res = await searchCards.run(
+      { query: 'Found', board_id: 3 },
+      fakeCtx({ client: { searchCards: searchCardsFn } }),
+    );
+    // bounded result set (limit ≤ 20) mirrored as a machine-readable array
+    expect(Array.isArray((res.structuredContent as any)?.items)).toBe(true);
+    expect((res.structuredContent as any).items).toHaveLength(1);
+    expect((res.structuredContent as any).items[0]).toMatchObject({ id: 7, title: 'Found Card' });
+    // the human summary text is still present and unchanged in shape
+    expect(res.content[0].text).toContain('1. Found Card');
+  });
+
   it('does NOT warn when effectiveLimit <= 20', async () => {
     const searchCardsFn = vi.fn().mockResolvedValue([]);
     const warning = vi.fn();

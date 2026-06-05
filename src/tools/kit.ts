@@ -22,6 +22,14 @@ export interface ServerContext {
 /** The MCP CallTool result envelope. `isError` toggles the protocol error flag. */
 export interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
+  /**
+   * Machine-readable mirror of the text block (MCP spec 2025-11-25). Populated
+   * automatically for read-only tools (see {@link defineTool}). We never
+   * advertise an `outputSchema`, so this costs nothing on connect and the SDK
+   * forwards it unvalidated — programmatic clients can consume it without
+   * re-parsing the text JSON.
+   */
+  structuredContent?: { [key: string]: unknown };
   isError?: boolean;
 }
 
@@ -39,6 +47,26 @@ export function text(s: string): TextMarker {
 
 const isText = (v: unknown): v is TextMarker =>
   typeof v === 'object' && v !== null && (v as Record<symbol, unknown>)[TEXT] === true;
+
+/**
+ * Return pre-rendered `rendered` text (markdown or a human-readable summary)
+ * PLUS a machine-readable `structuredContent` mirror of the underlying `data`
+ * (MCP spec 2025-11-25). Use this from read-only tools whose text output is a
+ * human-formatted view of structured data, so programmatic clients can consume
+ * the data without scraping the prose. Arrays are wrapped as `{ items }` to
+ * satisfy the object-typed field; non-object `data` yields no structuredContent.
+ * The text block is whatever you pass — mirror only data the text already shows,
+ * never more (so truncated/summarized payloads are NOT silently re-expanded).
+ */
+export function textWithData(rendered: string, data: unknown): ToolResult {
+  const result: ToolResult = { content: [{ type: 'text', text: rendered }] };
+  if (data !== null && typeof data === 'object') {
+    result.structuredContent = Array.isArray(data)
+      ? { items: data }
+      : (data as Record<string, unknown>);
+  }
+  return result;
+}
 
 const isToolResult = (v: unknown): v is ToolResult => {
   if (typeof v !== 'object' || v === null) return false;
@@ -94,7 +122,20 @@ export function defineTool<S extends z.ZodObject<z.ZodRawShape>>(spec: {
         const out = await spec.handler(args, ctx);
         if (isToolResult(out)) return out;
         if (isText(out)) return { content: [{ type: 'text', text: out.text }] };
-        return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) ?? 'null' }] };
+        const result: ToolResult = {
+          content: [{ type: 'text', text: JSON.stringify(out, null, 2) ?? 'null' }],
+        };
+        // Read-only tools also expose a machine-readable mirror in
+        // `structuredContent` (MCP spec 2025-11-25). The text block above is left
+        // untouched (arrays stay bare arrays) so the envelope is non-breaking;
+        // arrays are wrapped as `{ items }` here to satisfy the object-typed
+        // field. No outputSchema is advertised, so this is free on connect.
+        if (spec.annotations?.readOnly && out !== null && typeof out === 'object') {
+          result.structuredContent = Array.isArray(out)
+            ? { items: out }
+            : (out as Record<string, unknown>);
+        }
+        return result;
       } catch (err) {
         return mapError(err);
       }

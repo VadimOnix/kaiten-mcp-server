@@ -1,4 +1,4 @@
-import { defineTool } from '../kit.js';
+import { defineTool, textWithData } from '../kit.js';
 import type { ServerContext } from '../kit.js';
 import { SearchCardsSchema } from '../../schemas.js';
 import type { z } from 'zod';
@@ -48,14 +48,11 @@ export async function searchCardsHandler(
 
   const finalResponse = truncateResponse(renderSearchSummary(cards, processedCards, args, params));
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: finalResponse,
-      },
-    ],
-  };
+  // Human-readable summary text PLUS a machine-readable structuredContent mirror
+  // of the (verbosity-applied, ≤20) cards (MCP spec 2025-11-25). The result set
+  // is bounded by the schema's limit cap, so the structured mirror cannot
+  // re-bloat the way an unbounded list would.
+  return textWithData(finalResponse, processedCards);
 }
 
 export const searchCards = defineTool({

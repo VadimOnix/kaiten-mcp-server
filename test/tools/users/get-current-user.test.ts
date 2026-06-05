@@ -24,6 +24,17 @@ describe('kaiten_get_current_user tool module', () => {
     expect(res.content[0].text).toBe(JSON.stringify(user, null, 2));
   });
 
+  it('mirrors the user into structuredContent (read-only tool, MCP spec 2025-11-25)', async () => {
+    const user = { id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true };
+    const res = await getCurrentUser.run(
+      {},
+      fakeCtx({ client: { getCurrentUser: vi.fn().mockResolvedValue(user) } }),
+    );
+    expect(res.structuredContent).toEqual(user);
+    // text stays byte-identical to the original pretty-JSON output
+    expect(res.content[0].text).toBe(JSON.stringify(user, null, 2));
+  });
+
   it('passes ctx.signal to client.getCurrentUser', async () => {
     const signal = new AbortController().signal;
     const user = { id: 1, full_name: 'Me', email: 'me@example.com', username: 'me', activated: true };
