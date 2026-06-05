@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-06-05
+
 ### Added
+- **Machine-readable tool output — `structuredContent` (MCP spec 2025-11-25).**
+  Read-only tools now mirror their JSON result into `structuredContent` so
+  programmatic clients can consume it without re-parsing the text block. The
+  text block is unchanged (non-breaking); arrays are mirrored as `{ items: [...] }`.
+- **`outputSchema` advertised on all 26 tools (MCP spec 2025-11-25).** Each tool
+  declares a typed output contract, so clients get a guaranteed `structuredContent`
+  shape AND the model knows each tool's response shape at plan time. Schemas are
+  intentionally lean (key fields only, every field optional + `passthrough`) so
+  conformance holds across verbosity levels; advertising them adds ~7k chars
+  (~2k tokens) to the connect payload. Guarded by an output-schema conformance
+  suite that drives every tool's happy path.
+- **`kaiten_get_card_comments` pagination + verbosity.** New optional `limit`
+  (default 50, max 100, most-recent-first window), `offset` (pages into older
+  history), and `verbosity` (minimal | normal | detailed). Additive — omitting
+  them reproduces the prior output for cards with ≤50 comments.
+- **Deterministic tool-quality eval harness (`test/eval/`).** A no-LLM,
+  CI-runnable suite guarding (1) the advertised connect-footprint against
+  ratcheting ceilings, (2) per-tool routing signals (chaining keywords an agent
+  needs), and (3) response-size caps (comment pagination, search limit, the
+  truncation backstop).
 - **Card members & responsible (4 new tools, toolset 22 → 26).**
   `kaiten_get_card_members`, `kaiten_add_card_members`,
   `kaiten_remove_card_members`, and `kaiten_set_card_responsible` manage card
@@ -32,7 +54,32 @@
   - Advertised `resources` capability is now `{ subscribe: false }` (the non-standard
     `templates: true` flag is no longer sent; resource templates remain fully functional).
   - See `docs/adr/0001-defer-tool-middleware.md` for the design and SDK spike findings.
-- No tools added or removed; the package version is unchanged.
+- **Tool descriptions trimmed for context economy.** Every over-budget tool
+  description was cut to a concise high-signal blurb (what + when + which tools it
+  chains with); per-tool `PARAMETERS:` / `RELATED TOOLS:` manuals were removed from
+  every group (details already live in the Zod schema `.describe()`). Cross-tool
+  rules — default space, Russian root-word search, Cyrillic→Latin user-name
+  transliteration — were consolidated ONCE into the server `instructions` instead
+  of being repeated per tool. ~12k fewer characters advertised on connect; no
+  behaviour change. Length + routing signals are now guarded by tests.
+- **`kaiten_search_cards` param descriptions shortened** (the 26 remaining params),
+  non-breaking.
+- **Upgraded `@modelcontextprotocol/sdk` ^1.20.0 → ^1.29.0** (latest 1.x; brings
+  the 2025-11-25 spec features used above). No source changes required.
+
+### Removed
+- **`kaiten_search_cards`: removed 10 niche parameters.** Dropped
+  `last_moved_to_done_at_before` / `last_moved_to_done_at_after`, `done_on_time`,
+  `with_due_date`, `archived` (redundant with `condition=2`), `exclude_board_ids` /
+  `exclude_owner_ids` / `exclude_card_ids`, and the plural `column_ids` / `type_ids`
+  (the singular `column_id` / `type_id` are kept). All common filters remain
+  (query, space/board/column/lane/state/owner/type, condition, created/updated/due
+  date ranges, asap/overdue, owner_ids/member_ids/tag_ids, sort, limit≤20/skip,
+  verbosity). This shrinks the heaviest advertised schema (3,884 → 2,472 chars).
+  **Breaking for code that validates against `SearchCardsSchema` directly** (the
+  `.strict()` schema now rejects these keys); over the MCP wire the protocol
+  silently strips unknown keys, so client calls do **not** error — those filters
+  simply no longer apply.
 
 ## [3.3.0] - 2026-06-04
 
