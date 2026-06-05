@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { SetCardResponsibleSchema } from '../../schemas.js';
+import { ResponsibleOutput } from '../../output-schemas.js';
 import { SET_CARD_RESPONSIBLE_DESC } from './descriptions.js';
 
 /**
@@ -11,6 +12,7 @@ export const setCardResponsible = defineTool({
   name: 'kaiten_set_card_responsible',
   description: SET_CARD_RESPONSIBLE_DESC,
   schema: SetCardResponsibleSchema,
+  outputSchema: ResponsibleOutput,
   annotations: { idempotent: true },
   handler: ({ card_id, user_id }, ctx) =>
     ctx.client.setCardResponsible(card_id, user_id, ctx.signal),

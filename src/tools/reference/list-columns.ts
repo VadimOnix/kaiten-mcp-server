@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { ListColumnsSchema } from '../../schemas.js';
+import { NamedListOutput } from '../../output-schemas.js';
 import { LIST_COLUMNS_DESC } from './descriptions.js';
 
 /**
@@ -13,6 +14,7 @@ export const listColumns = defineTool({
   name: 'kaiten_list_columns',
   description: LIST_COLUMNS_DESC,
   schema: ListColumnsSchema,
+  outputSchema: NamedListOutput,
   annotations: { readOnly: true },
   handler: async ({ board_id }, ctx) => {
     return ctx.client.getColumns(board_id, ctx.signal);

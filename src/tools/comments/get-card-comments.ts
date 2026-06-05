@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { GetCardCommentsSchema } from '../../schemas.js';
+import { CommentListOutput } from '../../output-schemas.js';
 import { simplifyComment } from '../../transformers.js';
 import { GET_CARD_COMMENTS_DESC } from './descriptions.js';
 
@@ -21,6 +22,7 @@ export const getCardComments = defineTool({
   name: 'kaiten_get_card_comments',
   description: GET_CARD_COMMENTS_DESC,
   schema: GetCardCommentsSchema,
+  outputSchema: CommentListOutput,
   annotations: { readOnly: true },
   handler: async ({ card_id, limit, offset, verbosity }, ctx) => {
     const all = await ctx.client.getCardComments(card_id, ctx.signal);

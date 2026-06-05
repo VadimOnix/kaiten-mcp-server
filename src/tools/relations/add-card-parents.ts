@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { AddCardParentsSchema } from '../../schemas.js';
+import { BatchOutput } from '../../output-schemas.js';
 import { batchPerItem } from '../helpers.js';
 import { ADD_CARD_PARENTS_DESC } from './descriptions.js';
 
@@ -14,6 +15,7 @@ export const addCardParents = defineTool({
   name: 'kaiten_add_card_parents',
   description: ADD_CARD_PARENTS_DESC,
   schema: AddCardParentsSchema,
+  outputSchema: BatchOutput,
   annotations: { idempotent: true },
   handler: ({ card_id, parent_card_ids }, ctx) =>
     batchPerItem(parent_card_ids, card_id, 'parents', 'added', (id) =>

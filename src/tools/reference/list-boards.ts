@@ -1,5 +1,6 @@
-import { defineTool, text } from '../kit.js';
+import { defineTool, textWithData } from '../kit.js';
 import { ListBoardsSchema } from '../../schemas.js';
+import { NamedListOutput } from '../../output-schemas.js';
 import { applyBoardVerbosity, truncateResponse } from '../../utils.js';
 import { LIST_BOARDS_DESC } from './descriptions.js';
 
@@ -17,6 +18,7 @@ export const listBoards = defineTool({
   name: 'kaiten_list_boards',
   description: LIST_BOARDS_DESC,
   schema: ListBoardsSchema,
+  outputSchema: NamedListOutput,
   annotations: { readOnly: true },
   handler: async ({ space_id, verbosity }, ctx) => {
     // spaceId is now required by API - use provided or fallback to DEFAULT_SPACE_ID
@@ -39,6 +41,6 @@ export const listBoards = defineTool({
     const resolvedVerbosity = verbosity || 'normal';
     const processedBoards = applyBoardVerbosity(boards, resolvedVerbosity);
 
-    return text(truncateResponse(JSON.stringify(processedBoards, null, 2)));
+    return textWithData(truncateResponse(JSON.stringify(processedBoards, null, 2)), processedBoards);
   },
 });

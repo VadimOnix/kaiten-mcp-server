@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { ListTypesSchema } from '../../schemas.js';
+import { NamedListOutput } from '../../output-schemas.js';
 import { LIST_TYPES_DESC } from './descriptions.js';
 
 /**
@@ -13,6 +14,7 @@ export const listTypes = defineTool({
   name: 'kaiten_list_types',
   description: LIST_TYPES_DESC,
   schema: ListTypesSchema,
+  outputSchema: NamedListOutput,
   annotations: { readOnly: true },
   handler: async ({ board_id }, ctx) => {
     return ctx.client.getTypes(board_id, ctx.signal);

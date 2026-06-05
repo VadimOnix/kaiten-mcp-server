@@ -155,6 +155,8 @@ export async function batchPerItem(
         text: JSON.stringify(result, null, 2),
       },
     ],
+    // Machine-readable mirror for the advertised outputSchema (BatchOutput).
+    structuredContent: result,
     ...(succeeded.length === 0 ? { isError: true } : {}),
   };
 }
@@ -200,6 +202,8 @@ export async function batchCardMembers(
 
   return {
     content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    // Machine-readable mirror for the advertised outputSchema (BatchOutput).
+    structuredContent: result,
     ...(succeeded.length === 0 ? { isError: true } : {}),
   };
 }

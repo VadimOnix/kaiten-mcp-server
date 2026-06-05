@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { CreateCardSchema } from '../../schemas.js';
+import { CardOutput } from '../../output-schemas.js';
 import type { CreateCardParams } from '../../kaiten-client.js';
 import { CREATE_CARD_DESC } from './descriptions.js';
 
@@ -17,6 +18,7 @@ export const createCard = defineTool({
   name: 'kaiten_create_card',
   description: CREATE_CARD_DESC,
   schema: CreateCardSchema,
+  outputSchema: CardOutput,
   annotations: { idempotent: true },
   handler: async (args, ctx) => {
     const params: CreateCardParams = {

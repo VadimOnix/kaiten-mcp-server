@@ -1,6 +1,7 @@
 import { defineTool, textWithData } from '../kit.js';
 import type { ServerContext } from '../kit.js';
 import { SearchCardsSchema } from '../../schemas.js';
+import { CardListOutput } from '../../output-schemas.js';
 import type { z } from 'zod';
 import { buildSearchParams } from '../helpers.js';
 import { renderSearchSummary } from '../render.js';
@@ -59,6 +60,7 @@ export const searchCards = defineTool({
   name: 'kaiten_search_cards',
   description: SEARCH_CARDS_DESC,
   schema: SearchCardsSchema,
+  outputSchema: CardListOutput,
   annotations: { readOnly: true },
   handler: searchCardsHandler,
 });

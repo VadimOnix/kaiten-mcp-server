@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '../kit.js';
+import { UserOutput } from '../../output-schemas.js';
 import { GET_CURRENT_USER_DESC } from './descriptions.js';
 
 /**
@@ -16,6 +17,7 @@ export const getCurrentUser = defineTool({
   name: 'kaiten_get_current_user',
   description: GET_CURRENT_USER_DESC,
   schema: z.object({}).strict(),
+  outputSchema: UserOutput,
   annotations: { readOnly: true },
   handler: async (_args, ctx) => {
     return ctx.client.getCurrentUser(ctx.signal);

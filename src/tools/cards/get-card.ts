@@ -1,5 +1,6 @@
 import { defineTool, textWithData } from '../kit.js';
 import { GetCardSchema } from '../../schemas.js';
+import { CardOutput } from '../../output-schemas.js';
 import { renderCardMarkdown } from '../render.js';
 import { GET_CARD_DESC } from './descriptions.js';
 
@@ -17,6 +18,7 @@ export const getCard = defineTool({
   name: 'kaiten_get_card',
   description: GET_CARD_DESC,
   schema: GetCardSchema,
+  outputSchema: CardOutput,
   annotations: { readOnly: true },
   handler: async ({ card_id, format }, ctx) => {
     const card = await ctx.client.getCard(card_id, ctx.signal);

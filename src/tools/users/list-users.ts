@@ -1,5 +1,6 @@
-import { defineTool, text } from '../kit.js';
+import { defineTool, textWithData } from '../kit.js';
 import { ListUsersSchema } from '../../schemas.js';
+import { UserListOutput } from '../../output-schemas.js';
 import { applyUserVerbosity, truncateResponse } from '../../utils.js';
 import { LIST_USERS_DESC } from './descriptions.js';
 
@@ -25,6 +26,7 @@ export const listUsers = defineTool({
   name: 'kaiten_list_users',
   description: LIST_USERS_DESC,
   schema: ListUsersSchema,
+  outputSchema: UserListOutput,
   annotations: { readOnly: true },
   handler: async ({ query, limit, offset, verbosity }, ctx) => {
     // Use server-side filtering when parameters provided
@@ -42,7 +44,7 @@ export const listUsers = defineTool({
 
       const output = truncateResponse(JSON.stringify(processedUsers, null, 2));
 
-      return text(output);
+      return textWithData(output, processedUsers);
     }
 
     // Fallback: cache full list when no parameters
@@ -60,6 +62,6 @@ export const listUsers = defineTool({
 
     const output = truncateResponse(JSON.stringify(processedUsers, null, 2));
 
-    return text(output);
+    return textWithData(output, processedUsers);
   },
 });

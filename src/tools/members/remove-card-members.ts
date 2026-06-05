@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { RemoveCardMembersSchema } from '../../schemas.js';
+import { BatchOutput } from '../../output-schemas.js';
 import { batchCardMembers } from '../helpers.js';
 import { REMOVE_CARD_MEMBERS_DESC } from './descriptions.js';
 
@@ -12,6 +13,7 @@ export const removeCardMembers = defineTool({
   name: 'kaiten_remove_card_members',
   description: REMOVE_CARD_MEMBERS_DESC,
   schema: RemoveCardMembersSchema,
+  outputSchema: BatchOutput,
   annotations: { idempotent: true },
   handler: ({ card_id, user_ids }, ctx) =>
     batchCardMembers(user_ids, card_id, 'removed', (id) =>

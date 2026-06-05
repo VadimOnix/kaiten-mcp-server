@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { defineTool, text } from '../kit.js';
+import { defineTool, textWithData } from '../kit.js';
 import { simplifySpace } from '../../transformers.js';
+import { NamedListOutput } from '../../output-schemas.js';
 import { LIST_SPACES_DESC } from './descriptions.js';
 
 /**
@@ -15,6 +16,7 @@ export const listSpaces = defineTool({
   name: 'kaiten_list_spaces',
   description: LIST_SPACES_DESC,
   schema: z.object({}).strict(),
+  outputSchema: NamedListOutput,
   annotations: { readOnly: true },
   handler: async (_args, ctx) => {
     // Try cache first
@@ -37,6 +39,6 @@ export const listSpaces = defineTool({
       output += `\n`;
     });
 
-    return text(output);
+    return textWithData(output, simplified);
   },
 });

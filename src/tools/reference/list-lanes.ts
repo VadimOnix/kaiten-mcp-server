@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { ListLanesSchema } from '../../schemas.js';
+import { NamedListOutput } from '../../output-schemas.js';
 import { LIST_LANES_DESC } from './descriptions.js';
 
 /**
@@ -13,6 +14,7 @@ export const listLanes = defineTool({
   name: 'kaiten_list_lanes',
   description: LIST_LANES_DESC,
   schema: ListLanesSchema,
+  outputSchema: NamedListOutput,
   annotations: { readOnly: true },
   handler: async ({ board_id }, ctx) => {
     return ctx.client.getLanes(board_id, ctx.signal);

@@ -50,7 +50,9 @@ interface Footprint {
   descTotal: number;
   schemaTotal: number;
   wireChars: number;
-  perTool: Array<{ name: string; desc: number; schema: number; total: number }>;
+  outputSchemaTotal: number;
+  toolsWithOutputSchema: number;
+  perTool: Array<{ name: string; desc: number; schema: number; output: number; total: number }>;
 }
 
 async function measureFootprint(): Promise<Footprint> {
@@ -59,12 +61,17 @@ async function measureFootprint(): Promise<Footprint> {
   const instructions = client.getInstructions() ?? '';
   let descTotal = 0;
   let schemaTotal = 0;
+  let outputSchemaTotal = 0;
+  let toolsWithOutputSchema = 0;
   const perTool = tools.map((t) => {
     const desc = (t.description ?? '').length;
     const schema = JSON.stringify(t.inputSchema ?? {}).length;
+    const output = t.outputSchema ? JSON.stringify(t.outputSchema).length : 0;
     descTotal += desc;
     schemaTotal += schema;
-    return { name: t.name, desc, schema, total: desc + schema };
+    outputSchemaTotal += output;
+    if (t.outputSchema) toolsWithOutputSchema += 1;
+    return { name: t.name, desc, schema, output, total: desc + schema + output };
   });
   perTool.sort((a, b) => b.total - a.total);
   return {
@@ -73,6 +80,8 @@ async function measureFootprint(): Promise<Footprint> {
     descTotal,
     schemaTotal,
     wireChars: JSON.stringify(tools).length,
+    outputSchemaTotal,
+    toolsWithOutputSchema,
     perTool,
   };
 }
@@ -92,16 +101,23 @@ const fakeCtx = (over: Record<string, unknown> = {}) =>
 // 1. ADVERTISED FOOTPRINT BUDGET (ratchets — tighten as the surface shrinks)
 // ===========================================================================
 describe('eval: advertised footprint budget', () => {
-  // Measured baselines (chars), captured 2026-06-05 after the search_cards param
-  // slim (36 -> 26 props): wire=29,776 desc=11,025 schema=14,496 instr=1,137.
-  // Ceilings sit just above the baseline to catch regressions while leaving a
-  // little headroom. RATCHET DOWN when the surface shrinks; raise ONLY with a
-  // written justification.
-  const WIRE_CEILING = 30_000;
-  const SCHEMA_TOTAL_CEILING = 14_700;
+  // Measured baselines (chars), captured 2026-06-05 after advertising outputSchema
+  // on all 26 tools (MCP spec 2025-11-25): wire=37,261 desc=11,025 inputSchema=14,496
+  // outputSchema=7,069 instr=1,137.
+  //
+  // JUSTIFIED CEILING RAISE: advertising outputSchema for every tool adds ~7.1k
+  // chars (~2.0k tok) on connect — a deliberate, user-approved trade: clients get
+  // a typed output contract AND the model knows each tool's response shape at plan
+  // time. The schemas are kept LEAN (key fields only, optional + passthrough) to
+  // minimize this cost; OUTPUT_SCHEMA_TOTAL_CEILING guards it from creeping.
+  // Everything else stays ratcheted. RATCHET DOWN when a surface shrinks; raise
+  // ONLY with a written justification (like this one).
+  const WIRE_CEILING = 37_600;
+  const SCHEMA_TOTAL_CEILING = 14_700; // inputSchema only
+  const OUTPUT_SCHEMA_TOTAL_CEILING = 7_400;
   const DESC_TOTAL_CEILING = 11_200;
   const INSTRUCTIONS_CEILING = 1_600;
-  const PER_TOOL_CEILING = 3_300; // search_cards (heaviest) = 3,152 today
+  const PER_TOOL_CEILING = 3_600; // search_cards (heaviest) = desc+input+output
 
   it('reports the footprint breakdown and stays under the wire ceiling', async () => {
     const fp = await measureFootprint();
@@ -109,16 +125,22 @@ describe('eval: advertised footprint budget', () => {
     // the stdout-only rule applies to the MCP server runtime, not the test run).
     console.error(
       `[eval/footprint] tools=${fp.toolCount} wire=${fp.wireChars} ` +
-        `desc=${fp.descTotal} schema=${fp.schemaTotal} instr=${fp.instructionsChars} ` +
-        `heaviest=${fp.perTool[0].name}(${fp.perTool[0].total})`,
+        `desc=${fp.descTotal} inputSchema=${fp.schemaTotal} outputSchema=${fp.outputSchemaTotal} ` +
+        `instr=${fp.instructionsChars} heaviest=${fp.perTool[0].name}(${fp.perTool[0].total})`,
     );
     expect(fp.wireChars).toBeLessThanOrEqual(WIRE_CEILING);
   });
 
-  it('keeps the aggregate schema + description footprint bounded', async () => {
+  it('keeps the aggregate input-schema + description footprint bounded', async () => {
     const fp = await measureFootprint();
     expect(fp.schemaTotal).toBeLessThanOrEqual(SCHEMA_TOTAL_CEILING);
     expect(fp.descTotal).toBeLessThanOrEqual(DESC_TOTAL_CEILING);
+  });
+
+  it('keeps the advertised outputSchema footprint lean (all 26 tools, key fields only)', async () => {
+    const fp = await measureFootprint();
+    expect(fp.toolsWithOutputSchema).toBe(26);
+    expect(fp.outputSchemaTotal).toBeLessThanOrEqual(OUTPUT_SCHEMA_TOTAL_CEILING);
   });
 
   it('keeps the server instructions concise', async () => {

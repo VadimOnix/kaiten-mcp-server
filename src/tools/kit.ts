@@ -93,6 +93,15 @@ export interface ToolDefinition {
   readonly name: string;
   readonly description: string;
   readonly schema: z.ZodObject<z.ZodRawShape>;
+  /**
+   * Optional advertised output contract (MCP `outputSchema`, spec 2025-11-25).
+   * When set, the SDK advertises it on connect and validates that every
+   * non-error result carries conforming `structuredContent`. Our schemas are
+   * permissive (optional + passthrough), so conformance holds across the
+   * verbosity levels. See {@link defineTool} for how structuredContent is
+   * attached.
+   */
+  readonly outputSchema?: z.AnyZodObject;
   readonly annotations: ToolAnnotations;
   run(rawArgs: unknown, ctx: ServerContext): Promise<ToolResult>;
 }
@@ -108,6 +117,7 @@ export function defineTool<S extends z.ZodObject<z.ZodRawShape>>(spec: {
   name: string;
   description: string;
   schema: S;
+  outputSchema?: z.AnyZodObject;
   annotations?: ToolAnnotations;
   handler: ToolHandler<S>;
 }): ToolDefinition {
@@ -115,6 +125,7 @@ export function defineTool<S extends z.ZodObject<z.ZodRawShape>>(spec: {
     name: spec.name,
     description: spec.description,
     schema: spec.schema,
+    outputSchema: spec.outputSchema,
     annotations: spec.annotations ?? {},
     async run(rawArgs, ctx) {
       try {
@@ -125,12 +136,14 @@ export function defineTool<S extends z.ZodObject<z.ZodRawShape>>(spec: {
         const result: ToolResult = {
           content: [{ type: 'text', text: JSON.stringify(out, null, 2) ?? 'null' }],
         };
-        // Read-only tools also expose a machine-readable mirror in
-        // `structuredContent` (MCP spec 2025-11-25). The text block above is left
-        // untouched (arrays stay bare arrays) so the envelope is non-breaking;
-        // arrays are wrapped as `{ items }` here to satisfy the object-typed
-        // field. No outputSchema is advertised, so this is free on connect.
-        if (spec.annotations?.readOnly && out !== null && typeof out === 'object') {
+        // Attach a machine-readable mirror in `structuredContent` (MCP spec
+        // 2025-11-25) when the tool is read-only OR advertises an outputSchema.
+        // The text block above is left untouched (arrays stay bare arrays) so
+        // the envelope is non-breaking; arrays are wrapped as `{ items }` here to
+        // satisfy the object-typed field. A tool that advertises an outputSchema
+        // MUST emit conforming structuredContent on success (the SDK enforces it),
+        // so handlers returning text()/raw ToolResults attach it themselves.
+        if ((spec.annotations?.readOnly || spec.outputSchema) && out !== null && typeof out === 'object') {
           result.structuredContent = Array.isArray(out)
             ? { items: out }
             : (out as Record<string, unknown>);

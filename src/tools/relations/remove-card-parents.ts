@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { RemoveCardParentsSchema } from '../../schemas.js';
+import { BatchOutput } from '../../output-schemas.js';
 import { batchPerItem } from '../helpers.js';
 import { REMOVE_CARD_PARENTS_DESC } from './descriptions.js';
 
@@ -14,6 +15,7 @@ export const removeCardParents = defineTool({
   name: 'kaiten_remove_card_parents',
   description: REMOVE_CARD_PARENTS_DESC,
   schema: RemoveCardParentsSchema,
+  outputSchema: BatchOutput,
   annotations: { idempotent: true },
   handler: ({ card_id, parent_card_ids }, ctx) =>
     batchPerItem(parent_card_ids, card_id, 'parents', 'removed', (id) =>

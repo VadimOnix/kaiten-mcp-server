@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { CreateCommentSchema } from '../../schemas.js';
+import { CommentOutput } from '../../output-schemas.js';
 import { CREATE_COMMENT_DESC } from './descriptions.js';
 
 /**
@@ -15,6 +16,7 @@ export const createComment = defineTool({
   name: 'kaiten_create_comment',
   description: CREATE_COMMENT_DESC,
   schema: CreateCommentSchema,
+  outputSchema: CommentOutput,
   annotations: { idempotent: true },
   handler: async ({ card_id, text, idempotency_key }, ctx) => {
     return ctx.client.createComment(card_id, text, idempotency_key, ctx.signal);

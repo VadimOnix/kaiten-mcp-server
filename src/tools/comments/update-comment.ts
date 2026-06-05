@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { UpdateCommentSchema } from '../../schemas.js';
+import { CommentOutput } from '../../output-schemas.js';
 import { UPDATE_COMMENT_DESC } from './descriptions.js';
 
 /**
@@ -15,6 +16,7 @@ export const updateComment = defineTool({
   name: 'kaiten_update_comment',
   description: UPDATE_COMMENT_DESC,
   schema: UpdateCommentSchema,
+  outputSchema: CommentOutput,
   annotations: { idempotent: true },
   handler: async ({ card_id, comment_id, text, idempotency_key }, ctx) => {
     return ctx.client.updateComment(card_id, comment_id, text, idempotency_key, ctx.signal);

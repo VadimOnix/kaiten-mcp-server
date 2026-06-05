@@ -30,6 +30,12 @@ export function registerTools(server: McpServer, makeCtx: (signal?: AbortSignal)
       {
         description: def.description,
         inputSchema: def.schema.shape,
+        // Advertise the output contract (MCP spec 2025-11-25) when present. We
+        // pass the full ZodObject (getZodSchemaObject accepts a schema or a
+        // shape); its `.passthrough()` is preserved so the advertised schema is
+        // honest (additionalProperties: true). The SDK then validates that every
+        // non-error result carries conforming structuredContent.
+        ...(def.outputSchema ? { outputSchema: def.outputSchema } : {}),
         annotations: {
           readOnlyHint: def.annotations.readOnly,
           destructiveHint: def.annotations.destructive,

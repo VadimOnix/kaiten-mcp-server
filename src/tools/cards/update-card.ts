@@ -1,5 +1,6 @@
 import { defineTool } from '../kit.js';
 import { UpdateCardSchema } from '../../schemas.js';
+import { CardOutput } from '../../output-schemas.js';
 import type { UpdateCardParams } from '../../kaiten-client.js';
 import { UPDATE_CARD_DESC } from './descriptions.js';
 
@@ -16,6 +17,7 @@ export const updateCard = defineTool({
   name: 'kaiten_update_card',
   description: UPDATE_CARD_DESC,
   schema: UpdateCardSchema,
+  outputSchema: CardOutput,
   annotations: { idempotent: true },
   handler: async (args, ctx) => {
     const params: UpdateCardParams = {};
