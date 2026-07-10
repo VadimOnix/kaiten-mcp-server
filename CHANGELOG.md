@@ -1,3 +1,5 @@
+## [3.6.1](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.0...v3.6.1) (2026-07-10)
+
 ## [3.6.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.1...v3.6.0) (2026-07-10)
 
 ## [3.5.1](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.0...v3.5.1) (2026-07-10)
