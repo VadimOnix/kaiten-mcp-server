@@ -6,7 +6,7 @@ registry:
     title: Kaiten
     description: MCP server for Kaiten API - cards, comments, spaces, boards
     type: server
-    image: mcp-kaiten:latest
+    image: vadimkorolev/kaiten-mcp-server:latest
     command:
       - node
       - dist/index.js
