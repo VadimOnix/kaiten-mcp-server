@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/kaiten-mcp-server)](https://www.npmjs.com/package/kaiten-mcp-server)
 [![docker](https://img.shields.io/docker/v/vadimkorolev/kaiten-mcp-server?label=docker&sort=semver)](https://hub.docker.com/r/vadimkorolev/kaiten-mcp-server)
 [![release](https://github.com/VadimOnix/kaiten-mcp-server/actions/workflows/release.yml/badge.svg)](https://github.com/VadimOnix/kaiten-mcp-server/actions/workflows/release.yml)
-![license](https://img.shields.io/npm/l/kaiten-mcp-server)
+[![license](https://img.shields.io/npm/l/kaiten-mcp-server)](./LICENSE)
 
 MCP-сервер для интеграции Kaiten API с Claude Desktop. Позволяет управлять
 карточками, комментариями, пространствами и досками Kaiten напрямую из Claude.
