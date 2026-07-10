@@ -1,3 +1,5 @@
+## [3.5.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.4.0...v3.5.0) (2026-07-10)
+
 # Changelog
 
 ## [Unreleased]
