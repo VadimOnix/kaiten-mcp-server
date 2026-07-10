@@ -1,0 +1,43 @@
+name: 🐞 Bug report
+description: Что-то работает не так
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что происходит
+      description: Ожидаемое и фактическое поведение
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Как воспроизвести
+      placeholder: |
+        1. Промт в Claude / вызов инструмента с параметрами
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Способ установки
+      options:
+        - npx (npm)
+        - Docker
+        - из исходников
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия сервера
+      placeholder: "3.5.1"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи / текст ошибки
+      description: stderr сервера или ошибка из клиента. Токены не вставляйте.
+      render: text

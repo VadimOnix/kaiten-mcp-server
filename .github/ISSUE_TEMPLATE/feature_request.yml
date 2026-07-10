@@ -1,0 +1,21 @@
+name: 💡 Feature request
+description: Предложение нового инструмента или улучшения
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу решаем
+      description: Сценарий использования — что хочется делать из Claude
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Как это могло бы выглядеть (инструмент, параметры, поведение)
+  - type: textarea
+    id: api
+    attributes:
+      label: Ссылка на Kaiten API
+      description: Если знаете подходящий endpoint — https://developers.kaiten.ru/
