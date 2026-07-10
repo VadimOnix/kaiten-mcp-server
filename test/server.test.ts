@@ -39,10 +39,10 @@ beforeEach(() => {
 });
 
 describe('protocol contract', () => {
-  it('lists all 26 tools with non-empty descriptions and object input schemas', async () => {
+  it('lists all 28 tools with non-empty descriptions and object input schemas', async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(26);
+    expect(tools).toHaveLength(28);
     for (const t of tools) {
       expect(t.name).toMatch(/^kaiten_/);
       expect((t.description ?? '').length).toBeGreaterThan(0);
@@ -50,8 +50,8 @@ describe('protocol contract', () => {
     }
   });
 
-  it('ALL_TOOLS has exactly 26 entries and covers every advertised tool name', async () => {
-    expect(ALL_TOOLS.length).toBe(26);
+  it('ALL_TOOLS has exactly 28 entries and covers every advertised tool name', async () => {
+    expect(ALL_TOOLS.length).toBe(28);
     const client = await connect();
     const { tools } = await client.listTools();
     const names = new Set(ALL_TOOLS.map(d => d.name));

@@ -30,7 +30,7 @@ src/
 ├── index.ts          # Тонкая точка входа (stdio → createServer)
 ├── server.ts         # createServer(): McpServer + ресурсы/промпт
 ├── container.ts      # makeCtx(): сборка ServerContext (DI)
-├── tools/            # 26 инструментов как глубокие модули
+├── tools/            # 28 инструментов как глубокие модули
 │   ├── index.ts      # ALL_TOOLS / TOOL_MAP
 │   ├── kit.ts        # defineTool, ServerContext, mapError
 │   ├── registry.ts   # registerTools() → McpServer.registerTool
@@ -57,7 +57,7 @@ evaluations/          # Evaluation suite (шаблоны для проверки
 
 ## Архитектура
 
-26 инструментов — это самостоятельные «глубокие модули» в `src/tools/**`,
+28 инструментов — это самостоятельные «глубокие модули» в `src/tools/**`,
 описанные через `defineTool`. `createServer()` собирает высокоуровневый `McpServer`
 и регистрирует инструменты через `McpServer.registerTool`; JSON-схема каждого
 инструмента **выводится из его Zod-схемы** (`schemas.ts` — единый источник истины),

@@ -1,4 +1,5 @@
 import { KaitenCard, KaitenUser, KaitenBoard, KaitenMember } from './kaiten-client.js';
+import { stripAvatars } from './transformers.js';
 
 // ============================================
 // CHARACTER TRUNCATION
@@ -59,9 +60,11 @@ export function applyCardVerbosityNormal(
   return cards.map(simplifyFn);
 }
 
-// Detailed verbosity - full API response
+// Detailed verbosity - full API response, minus the base64 avatar URL fields
+// (see stripAvatars) that otherwise dominate the payload and overflow the
+// tool-result limit. All other metadata is preserved.
 export function applyCardVerbosityDetailed(cards: KaitenCard[]): any[] {
-  return cards; // Return as-is from API
+  return cards.map((card) => stripAvatars(card));
 }
 
 // Main verbosity application function

@@ -126,6 +126,18 @@ export const SetCardResponsibleSchema = z.object({
     .describe('The ID of the user to mark responsible (auto-added as a member if not already one)'),
 }).strict();
 
+export const AddCardTagsSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card to tag'),
+  tag_names: z.array(z.string().min(1)).min(1)
+    .describe('Tag names to attach; a tag is created if it does not exist yet (one API call per name)'),
+}).strict();
+
+export const RemoveCardTagsSchema = z.object({
+  card_id: z.number().positive().int().describe('The ID of the card to untag'),
+  tag_names: z.array(z.string().min(1)).min(1)
+    .describe('Tag names to detach from the card, matched case-insensitively (one API call per resolved tag)'),
+}).strict();
+
 export const SearchCardsSchema = z.object({
   // Text search
   query: z.string().optional().describe('Partial case-insensitive match on title/description/comments'),
@@ -265,3 +277,5 @@ export type GetCardMembersArgs = z.infer<typeof GetCardMembersSchema>;
 export type AddCardMembersArgs = z.infer<typeof AddCardMembersSchema>;
 export type RemoveCardMembersArgs = z.infer<typeof RemoveCardMembersSchema>;
 export type SetCardResponsibleArgs = z.infer<typeof SetCardResponsibleSchema>;
+export type AddCardTagsArgs = z.infer<typeof AddCardTagsSchema>;
+export type RemoveCardTagsArgs = z.infer<typeof RemoveCardTagsSchema>;

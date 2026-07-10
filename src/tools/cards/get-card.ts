@@ -1,6 +1,7 @@
 import { defineTool, textWithData } from '../kit.js';
 import { GetCardSchema } from '../../schemas.js';
 import { CardOutput } from '../../output-schemas.js';
+import { stripAvatars } from '../../transformers.js';
 import { renderCardMarkdown } from '../render.js';
 import { GET_CARD_DESC } from './descriptions.js';
 
@@ -22,7 +23,11 @@ export const getCard = defineTool({
   annotations: { readOnly: true },
   handler: async ({ card_id, format }, ctx) => {
     const card = await ctx.client.getCard(card_id, ctx.signal);
-    if (format === 'json') return card; // → JSON-wrapped + structuredContent by the seam
-    return textWithData(await renderCardMarkdown(card, ctx), card);
+    // Drop the base64 avatar URL fields from every raw-card payload (json body
+    // AND the structuredContent mirror). The markdown view already projects via
+    // simplifyCard, so the human text is unaffected.
+    const clean = stripAvatars(card);
+    if (format === 'json') return clean; // → JSON-wrapped + structuredContent by the seam
+    return textWithData(await renderCardMarkdown(card, ctx), clean);
   },
 });

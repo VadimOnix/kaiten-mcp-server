@@ -101,21 +101,22 @@ const fakeCtx = (over: Record<string, unknown> = {}) =>
 // 1. ADVERTISED FOOTPRINT BUDGET (ratchets — tighten as the surface shrinks)
 // ===========================================================================
 describe('eval: advertised footprint budget', () => {
-  // Measured baselines (chars), captured 2026-06-05 after advertising outputSchema
-  // on all 26 tools (MCP spec 2025-11-25): wire=37,261 desc=11,025 inputSchema=14,496
-  // outputSchema=7,069 instr=1,137.
+  // Measured baselines (chars), captured 2026-07-10 with all 28 tools (MCP spec
+  // 2025-11-25): wire=40,015 desc=11,921 inputSchema=15,355 outputSchema=7,707
+  // instr=1,137.
   //
-  // JUSTIFIED CEILING RAISE: advertising outputSchema for every tool adds ~7.1k
-  // chars (~2.0k tok) on connect — a deliberate, user-approved trade: clients get
-  // a typed output contract AND the model knows each tool's response shape at plan
-  // time. The schemas are kept LEAN (key fields only, optional + passthrough) to
-  // minimize this cost; OUTPUT_SCHEMA_TOTAL_CEILING guards it from creeping.
-  // Everything else stays ratcheted. RATCHET DOWN when a surface shrinks; raise
-  // ONLY with a written justification (like this one).
-  const WIRE_CEILING = 37_600;
-  const SCHEMA_TOTAL_CEILING = 14_700; // inputSchema only
-  const OUTPUT_SCHEMA_TOTAL_CEILING = 7_400;
-  const DESC_TOTAL_CEILING = 11_200;
+  // JUSTIFIED CEILING RAISE: two card-tag tools (kaiten_add_card_tags /
+  // kaiten_remove_card_tags) were added, taking the toolset 26 → 28. Each carries
+  // a concise description, a small { card_id, tag_names[] } input schema, and the
+  // shared lean TagBatchOutput — together ~+2.75k wire chars over the 26-tool
+  // baseline. The schemas stay LEAN (key fields only, optional + passthrough);
+  // the ceilings below are re-baselined to the new measured totals + small
+  // headroom. RATCHET DOWN when a surface shrinks; raise ONLY with a written
+  // justification (like this one).
+  const WIRE_CEILING = 40_400;
+  const SCHEMA_TOTAL_CEILING = 15_600; // inputSchema only
+  const OUTPUT_SCHEMA_TOTAL_CEILING = 8_000;
+  const DESC_TOTAL_CEILING = 12_200;
   const INSTRUCTIONS_CEILING = 1_600;
   const PER_TOOL_CEILING = 3_600; // search_cards (heaviest) = desc+input+output
 
@@ -137,9 +138,9 @@ describe('eval: advertised footprint budget', () => {
     expect(fp.descTotal).toBeLessThanOrEqual(DESC_TOTAL_CEILING);
   });
 
-  it('keeps the advertised outputSchema footprint lean (all 26 tools, key fields only)', async () => {
+  it('keeps the advertised outputSchema footprint lean (all 28 tools, key fields only)', async () => {
     const fp = await measureFootprint();
-    expect(fp.toolsWithOutputSchema).toBe(26);
+    expect(fp.toolsWithOutputSchema).toBe(28);
     expect(fp.outputSchemaTotal).toBeLessThanOrEqual(OUTPUT_SCHEMA_TOTAL_CEILING);
   });
 

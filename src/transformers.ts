@@ -17,6 +17,33 @@ import {
 const API_URL = config.KAITEN_API_URL;
 const DEFAULT_SPACE_ID = config.KAITEN_DEFAULT_SPACE_ID;
 
+/**
+ * Deep-clone `value`, recursively dropping the two avatar URL fields Kaiten
+ * embeds on every nested user (`owner`, `members`, `updater`, blockers, …).
+ * Both carry a full `data:image/png;base64,…` payload (~2 KB each) that is
+ * useless to a model yet dominates raw-card responses — a `detailed` search of
+ * 10 cards ballooned to ~109 KB and overflowed the tool-result limit. Applied
+ * to the raw-card paths (create/update responses, get_card json, search
+ * detailed); the `normal`/`minimal` shapes already project these away via
+ * simplifyCard. Pure and non-mutating so it stays unit-testable.
+ */
+const AVATAR_KEYS = new Set(['avatar_initials_url', 'avatar_uploaded_url']);
+
+export function stripAvatars<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((v) => stripAvatars(v)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      if (AVATAR_KEYS.has(key)) continue;
+      out[key] = stripAvatars(val);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 /** Build the public web URL for a card from its space + id. */
 export function buildCardUrl(card: KaitenCard): string {
   const baseUrl = API_URL!.replace('/api/latest', '');

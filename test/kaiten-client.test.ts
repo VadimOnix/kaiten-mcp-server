@@ -136,6 +136,34 @@ describe('card operations', () => {
   });
 });
 
+describe('card tag operations', () => {
+  it('getCardTags GETs /cards/:id/tags', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 3, name: 'urgent' }]));
+    expect(await client.getCardTags(5)).toEqual([{ id: 3, name: 'urgent' }]);
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/tags`);
+    expect((init.method ?? 'GET').toUpperCase()).toBe('GET');
+  });
+
+  it('addCardTag POSTs { name } to /cards/:id/tags', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 3, name: 'urgent' }));
+    const res = await client.addCardTag(5, 'urgent');
+    expect(res).toEqual({ id: 3, name: 'urgent' });
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/tags`);
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'urgent' });
+  });
+
+  it('removeCardTag DELETEs /cards/:id/tags/:tagId', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(undefined));
+    await client.removeCardTag(5, 3);
+    const [url, init] = call();
+    expect(url).toBe(`${BASE}/cards/5/tags/3`);
+    expect(init.method).toBe('DELETE');
+  });
+});
+
 describe('comment operations', () => {
   it('getCardComments GETs /cards/:id/comments', async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 1, text: 'hi' }]));

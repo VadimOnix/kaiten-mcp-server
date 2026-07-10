@@ -30,6 +30,8 @@ const FIXTURES: Record<string, { args: Record<string, unknown>; client?: Record<
   kaiten_create_card: { args: { title: 'X', board_id: 1 }, client: { createCard: resolves(card) } },
   kaiten_update_card: { args: { card_id: 1, title: 'X' }, client: { updateCard: resolves(card) } },
   kaiten_delete_card: { args: { card_id: 1 }, client: { deleteCard: resolves(undefined) } },
+  kaiten_add_card_tags: { args: { card_id: 1, tag_names: ['x'] }, client: { addCardTag: resolves({ id: 1, name: 'x' }) } },
+  kaiten_remove_card_tags: { args: { card_id: 1, tag_names: ['x'] }, client: { getCardTags: resolves([{ id: 9, name: 'x' }]), removeCardTag: resolves(undefined) } },
   kaiten_search_cards: { args: { board_id: 1 }, client: { searchCards: resolves([card]) } },
   kaiten_get_card_comments: { args: { card_id: 1 }, client: { getCardComments: resolves([comment]) } },
   kaiten_create_comment: { args: { card_id: 1, text: 'hi' }, client: { createComment: resolves(comment) } },
@@ -71,7 +73,7 @@ const fakeCtx = (f: { client?: Record<string, unknown>; cache?: Record<string, u
   }) as any;
 
 describe('outputSchema conformance — every tool emits structuredContent matching its advertised schema', () => {
-  it('all 26 tools advertise an outputSchema', () => {
+  it('all 28 tools advertise an outputSchema', () => {
     const without = ALL_TOOLS.filter((t) => !t.outputSchema).map((t) => t.name);
     expect(without, `tools missing an outputSchema: ${without.join(', ')}`).toEqual([]);
   });

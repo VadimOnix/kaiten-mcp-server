@@ -52,9 +52,24 @@ describe('applyCardVerbosity', () => {
     ]);
   });
 
-  it('detailed returns the raw cards untouched', () => {
-    const out = applyCardVerbosity(cards, 'detailed', simplify);
-    expect(out).toBe(cards);
+  it('detailed returns full cards with base64 avatar fields stripped', () => {
+    const detailedCards = [
+      {
+        id: 1,
+        title: 'A',
+        board_id: 10,
+        owner: { id: 1, full_name: 'Owner A', avatar_initials_url: 'data:image/png;base64,AAAA' },
+        members: [{ id: 2, full_name: 'M', avatar_uploaded_url: 'data:image/png;base64,BBBB' }],
+      },
+    ] as any;
+    const out = applyCardVerbosity(detailedCards, 'detailed', simplify);
+    expect(out[0]).toEqual({
+      id: 1,
+      title: 'A',
+      board_id: 10,
+      owner: { id: 1, full_name: 'Owner A' },
+      members: [{ id: 2, full_name: 'M' }],
+    });
   });
 
   it('defaults to normal when verbosity is omitted', () => {

@@ -33,13 +33,24 @@ describe('kaiten_update_card tool module', () => {
     expect(updateCardFn).toHaveBeenCalledWith(5, { description: '' }, undefined);
   });
 
-  it('forwards state and size of zero', async () => {
+  it('forwards state of zero and sends size as the writable size_text string', async () => {
+    // Kaiten's PATCH ignores the numeric `size` field and only writes `size_text`
+    // (from which it derives `size`), so the tool must serialise size → size_text.
     const updateCardFn = vi.fn().mockResolvedValue({ id: 5 });
     await updateCard.run(
       { card_id: 5, state: 0, size: 0 },
       fakeCtx({ client: { updateCard: updateCardFn } }),
     );
-    expect(updateCardFn).toHaveBeenCalledWith(5, { state: 0, size: 0 }, undefined);
+    expect(updateCardFn).toHaveBeenCalledWith(5, { state: 0, size_text: '0' }, undefined);
+  });
+
+  it('serialises a non-zero size to size_text', async () => {
+    const updateCardFn = vi.fn().mockResolvedValue({ id: 5 });
+    await updateCard.run(
+      { card_id: 5, size: 5 },
+      fakeCtx({ client: { updateCard: updateCardFn } }),
+    );
+    expect(updateCardFn).toHaveBeenCalledWith(5, { size_text: '5' }, undefined);
   });
 
   it('forwards a provided idempotency_key into params', async () => {
@@ -49,6 +60,21 @@ describe('kaiten_update_card tool module', () => {
       fakeCtx({ client: { updateCard: updateCardFn } }),
     );
     expect(updateCardFn).toHaveBeenCalledWith(5, { title: 'X', idempotency_key: 'abc' }, undefined);
+  });
+
+  it('strips base64 avatar fields from the updated-card response', async () => {
+    const updated = {
+      id: 5,
+      title: 'X',
+      owner: { id: 1, full_name: 'O', avatar_uploaded_url: 'data:image/png;base64,BBBB' },
+    };
+    const updateCardFn = vi.fn().mockResolvedValue(updated);
+    const res = await updateCard.run(
+      { card_id: 5, title: 'X' },
+      fakeCtx({ client: { updateCard: updateCardFn } }),
+    );
+    expect(res.content[0].text).not.toContain('avatar_uploaded_url');
+    expect(JSON.parse(res.content[0].text).owner).toEqual({ id: 1, full_name: 'O' });
   });
 
   it('maps a thrown error', async () => {

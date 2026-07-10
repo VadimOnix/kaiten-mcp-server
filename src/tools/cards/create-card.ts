@@ -1,6 +1,7 @@
 import { defineTool } from '../kit.js';
 import { CreateCardSchema } from '../../schemas.js';
 import { CardOutput } from '../../output-schemas.js';
+import { stripAvatars } from '../../transformers.js';
 import type { CreateCardParams } from '../../kaiten-client.js';
 import { CREATE_CARD_DESC } from './descriptions.js';
 
@@ -8,7 +9,9 @@ import { CREATE_CARD_DESC } from './descriptions.js';
  * kaiten_create_card — thin-json archetype.
  *
  * Param-building: title + board_id always; every optional field is conditionally
- * assigned (size/asap forwarded when `!== undefined`, others when truthy). A
+ * assigned (size/asap forwarded when `!== undefined`, others when truthy). The
+ * numeric `size` arg is serialised to `size_text` (a string) because Kaiten's
+ * POST ignores the numeric `size` field on write. A
  * caller-supplied `idempotency_key` is forwarded into params so the client sends
  * it as the `Idempotency-Key` header (the client falls back to an auto-generated
  * key only when none is provided), making retries safe against duplicate cards.
@@ -29,12 +32,12 @@ export const createCard = defineTool({
     if (args.lane_id) params.lane_id = args.lane_id;
     if (args.description) params.description = args.description;
     if (args.type_id) params.type_id = args.type_id;
-    if (args.size !== undefined) params.size = args.size;
+    if (args.size !== undefined) params.size_text = String(args.size);
     if (args.asap !== undefined) params.asap = args.asap;
     if (args.owner_id) params.owner_id = args.owner_id;
     if (args.due_date) params.due_date = args.due_date;
     if (args.idempotency_key) params.idempotency_key = args.idempotency_key;
 
-    return ctx.client.createCard(params, ctx.signal);
+    return stripAvatars(await ctx.client.createCard(params, ctx.signal));
   },
 });

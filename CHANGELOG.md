@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-07-10
+
+### Added
+- **Card tag management (2 new tools, toolset 26 → 28).** `kaiten_add_card_tags`
+  and `kaiten_remove_card_tags` attach/detach labels by NAME (batch: `tag_names`
+  array, one API call per name). Add creates-or-links a tag; remove resolves each
+  name to its id against the card's current tags (case-insensitive) then unlinks
+  it, so callers never handle numeric tag ids. Both return a
+  `{ card_id, succeeded, failed, summary }` batch envelope and advertise the lean
+  `TagBatchOutput` schema. Previously tags were read-only (render/search only).
+
+### Fixed
+- **`size` is now actually written on create/update.** Kaiten's POST/PATCH ignore
+  the numeric `size` field and only accept `size_text` (a string, from which the
+  server derives `size`), so `kaiten_create_card` / `kaiten_update_card` returned
+  200 while leaving `size` null. The tools now serialise their numeric `size` arg
+  to `size_text`. The tool's `size` input parameter is unchanged (still a number).
+
+### Changed
+- **Base64 avatar fields stripped from raw-card responses.** `avatar_initials_url`
+  / `avatar_uploaded_url` (each a ~2 KB `data:` URI, per nested user) are now
+  removed from `kaiten_create_card` / `kaiten_update_card` responses, `kaiten_get_card`
+  (json), and `kaiten_search_cards` at `verbosity=detailed` — a `detailed` search of
+  10 cards previously reached ~109 KB and overflowed the tool-result limit. The
+  `normal`/`minimal` shapes already projected these away; all other metadata is kept.
+
 ## [3.4.0] - 2026-06-05
 
 ### Added

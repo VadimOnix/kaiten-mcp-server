@@ -24,6 +24,8 @@ import {
   AddCardMembersSchema,
   RemoveCardMembersSchema,
   SetCardResponsibleSchema,
+  AddCardTagsSchema,
+  RemoveCardTagsSchema,
 } from '../src/schemas';
 
 // Input-validation contract for the 22 MCP tools.
@@ -282,6 +284,34 @@ describe('RemoveCardChildrenSchema', () => {
   it('rejects unknown extra keys (strict)', () => {
     expect(() => RemoveCardChildrenSchema.parse({ card_id: 1, child_card_ids: [2], bogus: true })).toThrow();
   });
+});
+
+describe('AddCardTagsSchema / RemoveCardTagsSchema', () => {
+  for (const [label, Schema] of [
+    ['AddCardTagsSchema', AddCardTagsSchema],
+    ['RemoveCardTagsSchema', RemoveCardTagsSchema],
+  ] as const) {
+    it(`${label} accepts card_id and a non-empty tag_names array`, () => {
+      const parsed = Schema.parse({ card_id: 1, tag_names: ['urgent', 'backend'] });
+      expect(parsed.tag_names).toEqual(['urgent', 'backend']);
+    });
+
+    it(`${label} rejects an empty tag_names array`, () => {
+      expect(() => Schema.parse({ card_id: 1, tag_names: [] })).toThrow();
+    });
+
+    it(`${label} rejects empty-string tag names`, () => {
+      expect(() => Schema.parse({ card_id: 1, tag_names: [''] })).toThrow();
+    });
+
+    it(`${label} requires tag_names`, () => {
+      expect(() => Schema.parse({ card_id: 1 })).toThrow();
+    });
+
+    it(`${label} rejects unknown extra keys (strict)`, () => {
+      expect(() => Schema.parse({ card_id: 1, tag_names: ['x'], bogus: true })).toThrow();
+    });
+  }
 });
 
 describe('GetCardParentsSchema', () => {

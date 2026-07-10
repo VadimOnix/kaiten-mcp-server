@@ -4,6 +4,8 @@ import { getCard } from './cards/get-card.js';
 import { createCard } from './cards/create-card.js';
 import { updateCard } from './cards/update-card.js';
 import { deleteCard } from './cards/delete-card.js';
+import { addCardTags } from './cards/add-card-tags.js';
+import { removeCardTags } from './cards/remove-card-tags.js';
 import { searchCards } from './cards/search-cards.js';
 import { getCardComments } from './comments/get-card-comments.js';
 import { createComment } from './comments/create-comment.js';
@@ -32,6 +34,8 @@ export const ALL_TOOLS: ToolDefinition[] = [
   createCard,
   updateCard,
   deleteCard,
+  addCardTags,
+  removeCardTags,
   searchCards,
   getCardComments,
   createComment,

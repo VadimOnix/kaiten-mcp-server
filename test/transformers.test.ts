@@ -6,6 +6,7 @@ import {
   simplifyComment,
   simplifyCard,
   simplifyCardCompact,
+  stripAvatars,
 } from '../src/transformers';
 import type { KaitenCard } from '../src/kaiten-client';
 
@@ -177,6 +178,58 @@ describe('simplifyCard', () => {
     expect(s.members).toEqual([]);
     expect(s.asap).toBe(false);
     expect(s.size).toBeNull();
+  });
+});
+
+describe('stripAvatars', () => {
+  it('removes avatar_initials_url and avatar_uploaded_url from a nested user', () => {
+    const card = {
+      id: 1,
+      title: 'T',
+      owner: {
+        id: 9,
+        full_name: 'Owner',
+        avatar_initials_url: 'data:image/png;base64,AAAA',
+        avatar_uploaded_url: 'data:image/png;base64,BBBB',
+      },
+    };
+    const out = stripAvatars(card) as any;
+    expect(out.owner).toEqual({ id: 9, full_name: 'Owner' });
+    expect(out.id).toBe(1);
+    expect(out.title).toBe('T');
+  });
+
+  it('strips avatar fields inside arrays of users', () => {
+    const card = {
+      id: 2,
+      members: [
+        { id: 1, full_name: 'A', avatar_initials_url: 'data:...' },
+        { id: 2, full_name: 'B', avatar_uploaded_url: 'data:...' },
+      ],
+    };
+    const out = stripAvatars(card) as any;
+    expect(out.members).toEqual([
+      { id: 1, full_name: 'A' },
+      { id: 2, full_name: 'B' },
+    ]);
+  });
+
+  it('does not mutate the input object', () => {
+    const card = { owner: { id: 1, avatar_initials_url: 'data:...' } };
+    stripAvatars(card);
+    expect(card.owner.avatar_initials_url).toBe('data:...');
+  });
+
+  it('returns primitives, null and undefined unchanged', () => {
+    expect(stripAvatars(null)).toBeNull();
+    expect(stripAvatars(undefined)).toBeUndefined();
+    expect(stripAvatars(5 as any)).toBe(5);
+    expect(stripAvatars('x' as any)).toBe('x');
+  });
+
+  it('preserves an avatar-free object structurally', () => {
+    const card = { id: 5, title: 'Demo', board_id: 3, owner: { id: 9, full_name: 'O' } };
+    expect(stripAvatars(card)).toEqual(card);
   });
 });
 

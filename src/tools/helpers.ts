@@ -162,6 +162,55 @@ export async function batchPerItem(
 }
 
 /**
+ * Batch helper for card-TAG mutations. Runs `run` once per tag NAME, in order,
+ * collecting per-name successes/failures. Distinct from {@link batchCardMembers}
+ * because tags are addressed by name (strings), not numeric ids, so both the
+ * `succeeded` array and the per-item failure key are name-based:
+ * { card_id, succeeded:[name…], failed:[{ tag_name, error }], summary }.
+ * `isError` is set only when nothing succeeded (mirrors the other batch helpers).
+ */
+export async function batchCardTags(
+  names: string[],
+  cardId: number,
+  verb: string,
+  run: (name: string) => Promise<unknown>,
+): Promise<ToolResult> {
+  const succeeded: string[] = [];
+  const failed: Array<Record<string, string>> = [];
+
+  for (const name of names) {
+    try {
+      await run(name);
+      succeeded.push(name);
+    } catch (err) {
+      failed.push({
+        tag_name: name,
+        error:
+          err instanceof KaitenError
+            ? `${err.message}${err.hint ? ` — ${err.hint}` : ''}`
+            : err instanceof Error
+              ? err.message
+              : String(err),
+      });
+    }
+  }
+
+  const result = {
+    card_id: cardId,
+    succeeded,
+    failed,
+    summary: `${succeeded.length} ${verb}, ${failed.length} failed`,
+  };
+
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+    // Machine-readable mirror for the advertised outputSchema (TagBatchOutput).
+    structuredContent: result,
+    ...(succeeded.length === 0 ? { isError: true } : {}),
+  };
+}
+
+/**
  * Batch helper for card-member mutations. Runs `run` once per user id, in order,
  * collecting per-user successes/failures. Kept separate from {@link batchPerItem}
  * (which is byte-locked to the children/parents snapshots) so the members shape

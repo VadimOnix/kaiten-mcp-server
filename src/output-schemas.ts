@@ -79,6 +79,15 @@ export const BatchOutput = obj({
   summary: z.string().optional(),
 });
 
+// Tag batch mutations report succeeded/failed by tag NAME (strings), so the
+// shape differs from the id-keyed BatchOutput above.
+export const TagBatchOutput = obj({
+  card_id: z.number().optional(),
+  succeeded: z.array(z.string()).optional(),
+  failed: z.array(z.object({}).passthrough()).optional(),
+  summary: z.string().optional(),
+});
+
 export const ResponsibleOutput = obj({
   card_id: z.number().optional(),
   user_id: z.number().optional(),

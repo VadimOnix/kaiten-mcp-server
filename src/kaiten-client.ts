@@ -78,6 +78,7 @@ export interface KaitenType {
 }
 
 export interface KaitenTag {
+  id?: number;
   name: string;
 }
 
@@ -168,7 +169,12 @@ export interface CreateCardParams {
   lane_id?: number;
   description?: string;
   type_id?: number;
-  size?: number;
+  /**
+   * Card estimate. Kaiten POST/PATCH ignore the numeric `size` field on write
+   * and only accept `size_text` (a string), from which the server derives the
+   * numeric `size` it returns. Tools serialise their numeric `size` arg here.
+   */
+  size_text?: string;
   asap?: boolean;
   owner_id?: number;
   due_date?: string;
@@ -183,7 +189,8 @@ export interface UpdateCardParams {
   column_id?: number;
   lane_id?: number;
   type_id?: number;
-  size?: number;
+  /** See {@link CreateCardParams.size_text}: the writable estimate field. */
+  size_text?: string;
   asap?: boolean;
   owner_id?: number;
   due_date?: string;
@@ -581,6 +588,25 @@ export class KaitenClient {
 
     return this.queuedRequest(
       () => this.request<KaitenCard[]>(`/cards?${queryParams.toString()}`, { signal }),
+      signal,
+    );
+  }
+
+  // Card tag operations
+  async getCardTags(cardId: number, signal?: AbortSignal): Promise<KaitenTag[]> {
+    return this.queuedRequest(() => this.request<KaitenTag[]>(`/cards/${cardId}/tags`, { signal }), signal);
+  }
+
+  async addCardTag(cardId: number, name: string, signal?: AbortSignal): Promise<KaitenTag> {
+    return this.queuedRequest(
+      () => this.request<KaitenTag>(`/cards/${cardId}/tags`, { method: 'POST', body: { name }, signal }),
+      signal,
+    );
+  }
+
+  async removeCardTag(cardId: number, tagId: number, signal?: AbortSignal): Promise<void> {
+    await this.queuedRequest(
+      () => this.request<void>(`/cards/${cardId}/tags/${tagId}`, { method: 'DELETE', signal }),
       signal,
     );
   }

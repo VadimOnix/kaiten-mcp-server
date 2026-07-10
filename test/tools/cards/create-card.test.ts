@@ -41,6 +41,8 @@ describe('kaiten_create_card tool module', () => {
       },
       fakeCtx({ client: { createCard: createCardFn } }),
     );
+    // size is serialised to the writable size_text string (the numeric `size`
+    // field is ignored by Kaiten's POST, same as PATCH).
     expect(createCardFn).toHaveBeenCalledWith(
       {
         title: 'T',
@@ -49,11 +51,23 @@ describe('kaiten_create_card tool module', () => {
         lane_id: 12,
         description: 'desc',
         type_id: 13,
-        size: 0,
+        size_text: '0',
         asap: false,
         owner_id: 14,
         due_date: '2025-11-01T00:00:00Z',
       },
+      undefined,
+    );
+  });
+
+  it('serialises a non-zero size to size_text', async () => {
+    const createCardFn = vi.fn().mockResolvedValue({ id: 1 });
+    await createCard.run(
+      { title: 'T', board_id: 3, size: 5 },
+      fakeCtx({ client: { createCard: createCardFn } }),
+    );
+    expect(createCardFn).toHaveBeenCalledWith(
+      { title: 'T', board_id: 3, size_text: '5' },
       undefined,
     );
   });
@@ -68,6 +82,21 @@ describe('kaiten_create_card tool module', () => {
       { title: 'T', board_id: 3, idempotency_key: 'abc' },
       undefined,
     );
+  });
+
+  it('strips base64 avatar fields from the created-card response', async () => {
+    const created = {
+      id: 9,
+      title: 'X',
+      owner: { id: 1, full_name: 'O', avatar_initials_url: 'data:image/png;base64,AAAA' },
+    };
+    const createCardFn = vi.fn().mockResolvedValue(created);
+    const res = await createCard.run(
+      { title: 'X', board_id: 3 },
+      fakeCtx({ client: { createCard: createCardFn } }),
+    );
+    expect(res.content[0].text).not.toContain('avatar_initials_url');
+    expect(JSON.parse(res.content[0].text).owner).toEqual({ id: 1, full_name: 'O' });
   });
 
   it('maps a thrown error', async () => {
