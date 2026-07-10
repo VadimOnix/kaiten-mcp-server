@@ -1,5 +1,10 @@
 # Kaiten MCP Server
 
+[![npm](https://img.shields.io/npm/v/kaiten-mcp-server)](https://www.npmjs.com/package/kaiten-mcp-server)
+[![docker](https://img.shields.io/docker/v/vadimkorolev/kaiten-mcp-server?label=docker&sort=semver)](https://hub.docker.com/r/vadimkorolev/kaiten-mcp-server)
+[![release](https://github.com/VadimOnix/kaiten-mcp-server/actions/workflows/release.yml/badge.svg)](https://github.com/VadimOnix/kaiten-mcp-server/actions/workflows/release.yml)
+![license](https://img.shields.io/npm/l/kaiten-mcp-server)
+
 MCP-сервер для интеграции Kaiten API с Claude Desktop. Позволяет управлять
 карточками, комментариями, пространствами и досками Kaiten напрямую из Claude.
 
@@ -17,65 +22,29 @@ MCP-сервер для интеграции Kaiten API с Claude Desktop. По�
 
 ## Быстрый старт
 
-### 1. Установка
+**Понадобится API-токен Kaiten:** войдите в Kaiten → настройки профиля →
+создайте новый API-токен.
 
-```bash
-npm install
-```
-
-### 2. Настройка .env
-
-```bash
-cp .env.example .env
-```
-
-Заполните файл вашими данными:
-
-```env
-KAITEN_API_URL=https://your-domain.kaiten.ru/api/latest
-KAITEN_API_TOKEN=your_api_token_here
-KAITEN_DEFAULT_SPACE_ID=12345  # Ваш основной space_id
-```
-
-**Как получить API-токен:** войдите в Kaiten → настройки профиля → создайте новый
-API-токен → скопируйте в `.env`.
-
-### 3. Сборка
-
-```bash
-npm run build
-```
-
-### 4. Настройка Claude Desktop
-
-Откройте конфигурационный файл:
+Конфигурационный файл Claude Desktop:
 
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-Добавьте (замените путь на ваш полный путь к проекту):
+После любого изменения конфига полностью перезапустите Claude Desktop
+(⌘+Q / Alt+F4) и проверьте: напишите в чате «Покажи список пространств Kaiten».
+
+### Вариант 1 — npx (рекомендуется)
+
+Ничего не нужно клонировать и собирать — только установленный
+[Node.js 20+](https://nodejs.org). Пакет скачается из npm автоматически:
 
 ```json
 {
   "mcpServers": {
     "kaiten": {
-      "command": "node",
-      "args": ["/полный/путь/к/MCP Kaiten/dist/index.js"],
-      "cwd": "/полный/путь/к/MCP Kaiten"
-    }
-  }
-}
-```
-
-Альтернатива без `.env` — передать переменные прямо в конфиге:
-
-```json
-{
-  "mcpServers": {
-    "kaiten": {
-      "command": "node",
-      "args": ["/полный/путь/к/MCP Kaiten/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "kaiten-mcp-server"],
       "env": {
         "KAITEN_API_URL": "https://your-domain.kaiten.ru/api/latest",
         "KAITEN_API_TOKEN": "your_api_token_here",
@@ -86,23 +55,20 @@ npm run build
 }
 ```
 
-### 5. Перезапуск и проверка
-
-Полностью закройте (⌘+Q / Alt+F4) и откройте Claude Desktop заново. Затем напишите:
-
-```
-Покажи список пространств Kaiten
-```
-
-## Установка через Docker
-
-Сервер можно запускать из Docker-образа — без установки Node.js и локальной сборки.
+Для [Claude Code](https://claude.com/claude-code) — одна команда:
 
 ```bash
-docker build -t mcp-kaiten .   # или: npm run docker:build
+claude mcp add kaiten \
+  -e KAITEN_API_URL=https://your-domain.kaiten.ru/api/latest \
+  -e KAITEN_API_TOKEN=your_api_token_here \
+  -e KAITEN_DEFAULT_SPACE_ID=12345 \
+  -- npx -y kaiten-mcp-server
 ```
 
-Подключение в `claude_desktop_config.json`:
+### Вариант 2 — Docker
+
+Node.js не нужен. Готовый multi-arch образ (amd64/arm64) публикуется на
+[Docker Hub](https://hub.docker.com/r/vadimkorolev/kaiten-mcp-server) при каждом релизе:
 
 ```json
 {
@@ -114,7 +80,7 @@ docker build -t mcp-kaiten .   # или: npm run docker:build
         "-e", "KAITEN_API_URL=https://your-domain.kaiten.ru/api/latest",
         "-e", "KAITEN_API_TOKEN=your_api_token_here",
         "-e", "KAITEN_DEFAULT_SPACE_ID=12345",
-        "mcp-kaiten"
+        "vadimkorolev/kaiten-mcp-server:latest"
       ]
     }
   }
@@ -122,8 +88,35 @@ docker build -t mcp-kaiten .   # или: npm run docker:build
 ```
 
 `--rm` удаляет контейнер после завершения, `-i` включает интерактивный режим
-(необходим для MCP stdio). Не храните токены в конфиге, если клиент поддерживает
-`${env:VAR}`.
+(необходим для MCP stdio). Вместо `latest` можно закрепить версию: `:3`, `:3.5`,
+`:3.5.1`. Не храните токены в конфиге, если клиент поддерживает `${env:VAR}`.
+
+### Вариант 3 — из исходников
+
+Для разработки или доработки под себя:
+
+```bash
+git clone https://github.com/VadimOnix/kaiten-mcp-server.git
+cd kaiten-mcp-server
+npm install
+cp .env.example .env   # заполните KAITEN_API_URL / KAITEN_API_TOKEN / KAITEN_DEFAULT_SPACE_ID
+npm run build
+```
+
+```json
+{
+  "mcpServers": {
+    "kaiten": {
+      "command": "node",
+      "args": ["/полный/путь/к/kaiten-mcp-server/dist/index.js"],
+      "cwd": "/полный/путь/к/kaiten-mcp-server"
+    }
+  }
+}
+```
+
+Переменные можно передать и через блок `"env"` в конфиге вместо `.env` —
+как в вариантах выше. Локальная сборка образа: `npm run docker:build`.
 
 ## Переменные окружения
 
@@ -205,10 +198,10 @@ docker build -t mcp-kaiten .   # или: npm run docker:build
 
 ### Сервер не подключается
 
-1. Проверьте правильность пути в конфигурации Claude
-2. Убедитесь, что проект собран: `npm run build`
-3. Проверьте `.env`
-4. Перезапустите Claude Desktop полностью (⌘+Q)
+1. Проверьте JSON-конфиг: валидность, значения `KAITEN_*` в блоке `env`
+2. npx-вариант: убедитесь, что `node --version` ≥ 20; Docker-вариант: что Docker запущен
+3. Вариант «из исходников»: проект собран (`npm run build`), путь в `args` полный и правильный, `.env` заполнен
+4. Перезапустите Claude Desktop полностью (⌘+Q / Alt+F4)
 
 ### Ошибки API
 
