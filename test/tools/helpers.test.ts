@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SearchCardsArgs } from '../../src/schemas.js';
-import { buildSearchParams, batchPerItem, batchCardMembers } from '../../src/tools/helpers.js';
+import {
+  buildSearchParams,
+  batchPerItem,
+  batchCardMembers,
+  buildSizeText,
+  assertSizeApplied,
+} from '../../src/tools/helpers.js';
 import { KaitenError, KaitenErrorType } from '../../src/kaiten-client.js';
 
 // =============================================================================
@@ -262,5 +268,130 @@ describe('batchCardMembers', () => {
     const res = await batchCardMembers([2], 5, 'removed', run);
     expect(res.isError).toBe(true);
     expect(JSON.parse(res.content[0].text).summary).toBe('0 removed, 1 failed');
+  });
+});
+
+// =============================================================================
+// buildSizeText / assertSizeApplied — the card-estimate write guard.
+//
+// Kaiten's POST/PATCH accept ONLY `size_text`; `size` and `size_unit` are
+// read-only values the server derives from it. Worse, when the board does not
+// have the `size` card property enabled for the card's type, Kaiten answers 200
+// and silently drops the estimate — the write looks successful and is not.
+// These tests pin both halves: the serialisation, and the post-write check that
+// turns the silent no-op into a loud tool error.
+// =============================================================================
+
+describe('buildSizeText', () => {
+  it('serialises a bare number when no unit is given', () => {
+    expect(buildSizeText(2)).toBe('2');
+    expect(buildSizeText(0)).toBe('0');
+    expect(buildSizeText(2.5)).toBe('2.5');
+  });
+
+  it('appends the unit when one is given', () => {
+    expect(buildSizeText(3, 'SP')).toBe('3 SP');
+    expect(buildSizeText(1, 'h')).toBe('1 h');
+  });
+
+  it('ignores a blank unit', () => {
+    expect(buildSizeText(3, '   ')).toBe('3');
+  });
+
+  it('trims surrounding whitespace on the unit', () => {
+    expect(buildSizeText(3, ' SP ')).toBe('3 SP');
+  });
+});
+
+describe('assertSizeApplied', () => {
+  const board = (props?: unknown) => ({ id: 49114, title: 'B', card_properties: props });
+
+  it('passes when Kaiten applied the requested estimate', () => {
+    expect(() =>
+      assertSizeApplied({ id: 7, size: 2 } as any, 2, '2 SP', 'updated'),
+    ).not.toThrow();
+  });
+
+  it('passes for an applied zero estimate', () => {
+    expect(() => assertSizeApplied({ id: 7, size: 0 } as any, 0, '0', 'updated')).not.toThrow();
+  });
+
+  it('throws a VALIDATION_ERROR when the estimate came back null', () => {
+    let thrown: any;
+    try {
+      assertSizeApplied({ id: 7, size: null } as any, 2, '2 SP', 'updated');
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(KaitenError);
+    expect(thrown.type).toBe(KaitenErrorType.VALIDATION_ERROR);
+    expect(thrown.message).toContain('7');
+    expect(thrown.message).toContain('2 SP');
+  });
+
+  it('throws when Kaiten stored a different number than requested', () => {
+    expect(() => assertSizeApplied({ id: 7, size: 1 } as any, 2, '2', 'updated')).toThrow(
+      KaitenError,
+    );
+  });
+
+  it('throws when the response omits size entirely', () => {
+    expect(() => assertSizeApplied({ id: 7 } as any, 2, '2', 'updated')).toThrow(KaitenError);
+  });
+
+  it('names the board card property when size is not enabled for the card type', () => {
+    let thrown: any;
+    try {
+      assertSizeApplied(
+        {
+          id: 7,
+          size: null,
+          board_id: 49114,
+          type_id: 3,
+          board: board([{ key: 'size', cardTypeIds: [7] }]),
+        } as any,
+        2,
+        '2',
+        'updated',
+      );
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown.hint).toContain('card property');
+    expect(thrown.hint).toContain('49114');
+    expect(thrown.hint).toContain('3');
+  });
+
+  it('does not blame the board when the size property IS enabled for the type', () => {
+    let thrown: any;
+    try {
+      assertSizeApplied(
+        {
+          id: 7,
+          size: null,
+          board_id: 49114,
+          type_id: 7,
+          board: board([{ key: 'size', cardTypeIds: [7] }]),
+        } as any,
+        2,
+        '2',
+        'updated',
+      );
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown.hint).not.toContain('not enabled');
+  });
+
+  it('warns against re-creating the card when the write was a create', () => {
+    let thrown: any;
+    try {
+      assertSizeApplied({ id: 7, size: null } as any, 2, '2', 'created');
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown.message).toContain('created');
+    expect(thrown.hint).toContain('kaiten_create_card');
+    expect(thrown.details.card_id).toBe(7);
   });
 });

@@ -25,7 +25,7 @@ describe('kaiten_create_card tool module', () => {
   });
 
   it('only forwards provided optional fields', async () => {
-    const createCardFn = vi.fn().mockResolvedValue({ id: 1 });
+    const createCardFn = vi.fn().mockResolvedValue({ id: 1, size: 0 });
     await createCard.run(
       {
         title: 'T',
@@ -61,7 +61,7 @@ describe('kaiten_create_card tool module', () => {
   });
 
   it('serialises a non-zero size to size_text', async () => {
-    const createCardFn = vi.fn().mockResolvedValue({ id: 1 });
+    const createCardFn = vi.fn().mockResolvedValue({ id: 1, size: 5 });
     await createCard.run(
       { title: 'T', board_id: 3, size: 5 },
       fakeCtx({ client: { createCard: createCardFn } }),
@@ -82,6 +82,49 @@ describe('kaiten_create_card tool module', () => {
       { title: 'T', board_id: 3, idempotency_key: 'abc' },
       undefined,
     );
+  });
+
+  it('appends size_unit to size_text when a unit is given', async () => {
+    const createCardFn = vi.fn().mockResolvedValue({ id: 1, size: 3 });
+    await createCard.run(
+      { title: 'T', board_id: 3, size: 3, size_unit: 'SP' },
+      fakeCtx({ client: { createCard: createCardFn } }),
+    );
+    expect(createCardFn).toHaveBeenCalledWith(
+      { title: 'T', board_id: 3, size_text: '3 SP' },
+      undefined,
+    );
+  });
+
+  it('errors instead of reporting success when Kaiten drops the estimate', async () => {
+    // The bug this guards: Kaiten answers 200 and returns size: null when the
+    // board has no `size` card property for the type, so the create looked
+    // successful while the estimate was never stored.
+    const createCardFn = vi.fn().mockResolvedValue({
+      id: 9,
+      size: null,
+      board_id: 49114,
+      type_id: 3,
+      board: { id: 49114, title: 'B', card_properties: [{ key: 'size', cardTypeIds: [7] }] },
+    });
+    const res = await createCard.run(
+      { title: 'T', board_id: 49114, type_id: 3, size: 2 },
+      fakeCtx({ client: { createCard: createCardFn } }),
+    );
+    expect(res.isError).toBe(true);
+    const err = JSON.parse(res.content[0].text).error;
+    expect(err.type).toBe('VALIDATION_ERROR');
+    expect(err.details.card_id).toBe(9);
+    expect(err.hint).toContain('kaiten_create_card');
+  });
+
+  it('does not check the estimate when no size was requested', async () => {
+    const createCardFn = vi.fn().mockResolvedValue({ id: 9, size: null });
+    const res = await createCard.run(
+      { title: 'T', board_id: 3 },
+      fakeCtx({ client: { createCard: createCardFn } }),
+    );
+    expect(res.isError).toBeFalsy();
   });
 
   it('strips base64 avatar fields from the created-card response', async () => {

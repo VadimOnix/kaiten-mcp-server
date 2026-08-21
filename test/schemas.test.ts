@@ -100,6 +100,17 @@ describe('CreateCardSchema', () => {
     expect(parsed.size).toBe(0);
   });
 
+  it('accepts size_unit alongside size', () => {
+    const parsed = CreateCardSchema.parse({ title: 'x', board_id: 7, size: 3, size_unit: 'SP' });
+    expect(parsed.size_unit).toBe('SP');
+  });
+
+  it('rejects an empty size_unit', () => {
+    expect(() =>
+      CreateCardSchema.parse({ title: 'x', board_id: 7, size: 3, size_unit: '' })
+    ).toThrow();
+  });
+
   it('rejects a negative owner_id', () => {
     expect(() =>
       CreateCardSchema.parse({ title: 'x', board_id: 7, owner_id: -1 })
@@ -118,6 +129,12 @@ describe('UpdateCardSchema', () => {
 
   it('rejects an empty new title', () => {
     expect(() => UpdateCardSchema.parse({ card_id: 5, title: '' })).toThrow();
+  });
+
+  it('accepts size together with size_unit', () => {
+    const parsed = UpdateCardSchema.parse({ card_id: 5, size: 2.5, size_unit: 'h' });
+    expect(parsed.size).toBe(2.5);
+    expect(parsed.size_unit).toBe('h');
   });
 });
 

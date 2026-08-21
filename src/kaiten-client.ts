@@ -60,6 +60,21 @@ export interface KaitenBoard {
   title: string;
   space_id?: number;
   archived?: boolean;
+  /**
+   * Per-board card-property switches (`size`, custom fields, ...). A property is
+   * only writable on cards whose `type_id` is listed in its `cardTypeIds`; when
+   * it is missing, Kaiten answers 200 and silently drops the value. Used by
+   * {@link assertSizeApplied} to explain a dropped estimate.
+   */
+  card_properties?: KaitenCardProperty[];
+}
+
+export interface KaitenCardProperty {
+  key: string;
+  required?: boolean;
+  cardTypeIds?: number[];
+  laneIds?: number[];
+  columnIds?: number[];
 }
 
 export interface KaitenColumn {
@@ -100,7 +115,12 @@ export interface KaitenCard {
   lane_id?: number;
   position?: number;
   type_id?: number;
-  size?: number;
+  /** Read-only: derived by Kaiten from the `size_text` written on create/update. */
+  size?: number | null;
+  /** Read-only: the unit Kaiten parsed out of `size_text` (e.g. "SP"). */
+  size_unit?: string | null;
+  /** Read-only echo of the estimate as stored (e.g. "3 SP"). */
+  size_text?: string | null;
   asap?: boolean;
   blocked?: boolean;
   blocked_by_id?: number;

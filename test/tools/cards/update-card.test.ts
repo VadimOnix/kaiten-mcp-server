@@ -36,7 +36,7 @@ describe('kaiten_update_card tool module', () => {
   it('forwards state of zero and sends size as the writable size_text string', async () => {
     // Kaiten's PATCH ignores the numeric `size` field and only writes `size_text`
     // (from which it derives `size`), so the tool must serialise size → size_text.
-    const updateCardFn = vi.fn().mockResolvedValue({ id: 5 });
+    const updateCardFn = vi.fn().mockResolvedValue({ id: 5, size: 0 });
     await updateCard.run(
       { card_id: 5, state: 0, size: 0 },
       fakeCtx({ client: { updateCard: updateCardFn } }),
@@ -45,7 +45,7 @@ describe('kaiten_update_card tool module', () => {
   });
 
   it('serialises a non-zero size to size_text', async () => {
-    const updateCardFn = vi.fn().mockResolvedValue({ id: 5 });
+    const updateCardFn = vi.fn().mockResolvedValue({ id: 5, size: 5 });
     await updateCard.run(
       { card_id: 5, size: 5 },
       fakeCtx({ client: { updateCard: updateCardFn } }),
@@ -60,6 +60,45 @@ describe('kaiten_update_card tool module', () => {
       fakeCtx({ client: { updateCard: updateCardFn } }),
     );
     expect(updateCardFn).toHaveBeenCalledWith(5, { title: 'X', idempotency_key: 'abc' }, undefined);
+  });
+
+  it('appends size_unit to size_text when a unit is given', async () => {
+    const updateCardFn = vi.fn().mockResolvedValue({ id: 5, size: 3 });
+    await updateCard.run(
+      { card_id: 5, size: 3, size_unit: 'SP' },
+      fakeCtx({ client: { updateCard: updateCardFn } }),
+    );
+    expect(updateCardFn).toHaveBeenCalledWith(5, { size_text: '3 SP' }, undefined);
+  });
+
+  it('errors instead of reporting success when Kaiten drops the estimate', async () => {
+    // Reproduces the reported bug: PATCH returns 200 with size: null and the
+    // tool used to hand that back as a successful update.
+    const updateCardFn = vi.fn().mockResolvedValue({
+      id: 5,
+      size: null,
+      board_id: 49114,
+      type_id: 3,
+      board: { id: 49114, title: 'B', card_properties: [{ key: 'size', cardTypeIds: [7] }] },
+    });
+    const res = await updateCard.run(
+      { card_id: 5, size: 2 },
+      fakeCtx({ client: { updateCard: updateCardFn } }),
+    );
+    expect(res.isError).toBe(true);
+    const err = JSON.parse(res.content[0].text).error;
+    expect(err.type).toBe('VALIDATION_ERROR');
+    expect(err.hint).toContain('card property');
+    expect(err.hint).not.toContain('kaiten_create_card');
+  });
+
+  it('does not check the estimate when no size was requested', async () => {
+    const updateCardFn = vi.fn().mockResolvedValue({ id: 5, size: null });
+    const res = await updateCard.run(
+      { card_id: 5, title: 'X' },
+      fakeCtx({ client: { updateCard: updateCardFn } }),
+    );
+    expect(res.isError).toBeFalsy();
   });
 
   it('strips base64 avatar fields from the updated-card response', async () => {

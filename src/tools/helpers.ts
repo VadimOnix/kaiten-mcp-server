@@ -1,5 +1,6 @@
 import type { SearchCardsArgs } from '../schemas.js';
-import { KaitenError } from '../kaiten-client.js';
+import { KaitenError, KaitenErrorType } from '../kaiten-client.js';
+import type { KaitenCard } from '../kaiten-client.js';
 import type { ToolResult } from './kit.js';
 
 /**
@@ -255,4 +256,76 @@ export async function batchCardMembers(
     structuredContent: result,
     ...(succeeded.length === 0 ? { isError: true } : {}),
   };
+}
+
+// =============================================================================
+// Card estimate (size)
+// =============================================================================
+
+/**
+ * Serialise a numeric estimate into Kaiten's ONLY writable estimate field.
+ *
+ * `POST /cards` and `PATCH /cards/{id}` accept `size_text` (a string); `size`
+ * and `size_unit` are read-only values the server derives from it. Kaiten's own
+ * docs list `'1'`, `'23.45'`, `'.5'`, `'3 M'`, `'XL'` as acceptable, so a bare
+ * number is valid and a unit is simply appended after a space.
+ */
+export function buildSizeText(size: number, unit?: string): string {
+  const u = unit?.trim();
+  return u ? `${size} ${u}` : String(size);
+}
+
+/**
+ * Fail loudly when Kaiten silently ignored the estimate we just wrote.
+ *
+ * Kaiten answers 200 to a write it cannot apply — most often because the board
+ * has no `size` card property covering the card's type — and returns the card
+ * with `size: null`. Without this check both card-write tools reported success
+ * for a change that never happened, which is only discoverable by opening the
+ * card by hand. The thrown {@link KaitenError} names the card that WAS created
+ * or updated, so an agent fixes the estimate instead of retrying the write.
+ */
+export function assertSizeApplied(
+  card: KaitenCard,
+  requested: number,
+  sizeText: string,
+  verb: 'created' | 'updated',
+): void {
+  const applied = card.size;
+  if (typeof applied === 'number' && Math.abs(applied - requested) < 1e-9) return;
+
+  const props = card.board?.card_properties;
+  const sizeProp = props?.find((p) => p.key === 'size');
+  const typeCovered =
+    !!sizeProp &&
+    (!sizeProp.cardTypeIds?.length ||
+      (card.type_id !== undefined && sizeProp.cardTypeIds.includes(card.type_id)));
+  const boardIsTheCause = Array.isArray(props) && !typeCovered;
+
+  const retry =
+    verb === 'created'
+      ? `Card ${card.id} already exists — fix the estimate with kaiten_update_card, do NOT re-run kaiten_create_card.`
+      : `Re-run kaiten_update_card for card ${card.id} once the estimate is writable.`;
+
+  const hint = boardIsTheCause
+    ? `The "size" card property is not enabled for card type ${card.type_id} on board ${card.board_id}. ` +
+      `Enable it in the board settings (card properties -> size), then retry. ${retry}`
+    : `Kaiten accepts an estimate only via size_text and drops values the board rejects or cannot parse. ` +
+      `Check the board's "size" card property and the value format ("2", "2.5", "3 SP"). ${retry}`;
+
+  throw new KaitenError(
+    KaitenErrorType.VALIDATION_ERROR,
+    `Card ${card.id} was ${verb}, but Kaiten did not apply the requested size ` +
+      `(sent size_text="${sizeText}", card.size=${applied ?? 'null'}).`,
+    undefined,
+    {
+      card_id: card.id,
+      requested_size: requested,
+      sent_size_text: sizeText,
+      applied_size: applied ?? null,
+      board_id: card.board_id,
+      type_id: card.type_id,
+    },
+    hint,
+  );
 }

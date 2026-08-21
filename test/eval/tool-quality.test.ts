@@ -113,8 +113,14 @@ describe('eval: advertised footprint budget', () => {
   // the ceilings below are re-baselined to the new measured totals + small
   // headroom. RATCHET DOWN when a surface shrinks; raise ONLY with a written
   // justification (like this one).
-  const WIRE_CEILING = 40_400;
-  const SCHEMA_TOTAL_CEILING = 15_600; // inputSchema only
+  //
+  // JUSTIFIED CEILING RAISE (2026-08-21): kaiten_create_card / kaiten_update_card
+  // gained a `size_unit` param and their `size` describe now states that the
+  // estimate is written as size_text and errors when the board rejects it. That
+  // is ~+380 inputSchema chars for a param that stops a silent data loss (see
+  // docs/size-and-tags-backlog.md); the descriptions themselves did not grow.
+  const WIRE_CEILING = 40_800;
+  const SCHEMA_TOTAL_CEILING = 15_800; // inputSchema only
   const OUTPUT_SCHEMA_TOTAL_CEILING = 8_000;
   const DESC_TOTAL_CEILING = 12_200;
   const INSTRUCTIONS_CEILING = 1_600;
