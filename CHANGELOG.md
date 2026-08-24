@@ -1,12 +1,53 @@
 ## [3.6.2](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.1...v3.6.2) (2026-08-24)
 
+### Bug Fixes
+
+* **cards:** fail loudly when Kaiten drops a card estimate ([469252d](https://github.com/VadimOnix/kaiten-mcp-server/commit/469252d92a1b21a6a577f47eb68dc515229e5084))
+
+### Dependencies
+
+* **deps-dev:** bump js-yaml from 4.3.0 to 4.3.1 ([f91d0ba](https://github.com/VadimOnix/kaiten-mcp-server/commit/f91d0ba03b41cba44176dc287e669d0acfa3a37b))
+* **deps-dev:** bump postcss from 8.5.16 to 8.5.25 ([d41ae32](https://github.com/VadimOnix/kaiten-mcp-server/commit/d41ae32d56c08f07b3fca4da151cabb3a7c1991e))
+* **deps:** bump @hono/node-server from 1.19.14 to 1.19.17 ([e6dbb6a](https://github.com/VadimOnix/kaiten-mcp-server/commit/e6dbb6afc7a331c68b12c4ce80859d4d36129993))
+* **deps:** bump fast-uri from 3.1.3 to 3.1.5 ([6c22a0a](https://github.com/VadimOnix/kaiten-mcp-server/commit/6c22a0a7bdea2b0c2c64baaa78d45628e837aa97))
+* **deps:** bump hono from 4.12.29 to 4.13.1 ([13352b3](https://github.com/VadimOnix/kaiten-mcp-server/commit/13352b318fb8c5cf7791fad40ead05a243239036))
+* **deps:** bump ip-address from 10.2.0 to 10.4.0 ([e46f822](https://github.com/VadimOnix/kaiten-mcp-server/commit/e46f822b4fd6361b161d5d0ca0567b5e3b94dd41))
+* **deps:** bump undici ([7469196](https://github.com/VadimOnix/kaiten-mcp-server/commit/746919659086ffdbe7658a3602a5813f521f55a9))
+
 ## [3.6.1](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.0...v3.6.1) (2026-07-10)
+
+### Bug Fixes
+
+* **deps:** bump hono to 4.12.29, regenerate lockfile ([87b328f](https://github.com/VadimOnix/kaiten-mcp-server/commit/87b328f839b8da024509e624cf2154467233f3ca)), closes [#3](https://github.com/VadimOnix/kaiten-mcp-server/issues/3)
 
 ## [3.6.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.1...v3.6.0) (2026-07-10)
 
+### Features
+
+* **release:** enable npm provenance attestation ([2313728](https://github.com/VadimOnix/kaiten-mcp-server/commit/23137289e809478af865d31be1fcef1609b884a5))
+
+### Documentation
+
+* add security policy and issue/PR templates ([a1c5d92](https://github.com/VadimOnix/kaiten-mcp-server/commit/a1c5d92f92331fb8e52d7663542cb4d93cd3da35))
+* **readme:** lead with npx and Docker Hub install options ([61ab231](https://github.com/VadimOnix/kaiten-mcp-server/commit/61ab2314ffc18b017f9376b41178978399663314))
+
 ## [3.5.1](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.0...v3.5.1) (2026-07-10)
 
+### Bug Fixes
+
+* **release:** use npm token with 2FA bypass for publish ([2d8a88d](https://github.com/VadimOnix/kaiten-mcp-server/commit/2d8a88d4f41d77519d147b91046c0d96b96f3c7e))
+
 ## [3.5.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.4.0...v3.5.0) (2026-07-10)
+
+### Features
+
+* **cards:** tag tools + size_text write fix + avatar-stripped responses ([272cb89](https://github.com/VadimOnix/kaiten-mcp-server/commit/272cb89035af2895c7a9bd1d8194331378233892))
+* **release:** automate versioning + Docker Hub publish ([66bd0e1](https://github.com/VadimOnix/kaiten-mcp-server/commit/66bd0e19381c47a173b434df9acd56eb1cc8dd17))
+
+### Documentation
+
+* **spec:** add automated-releases design spec ([ff167df](https://github.com/VadimOnix/kaiten-mcp-server/commit/ff167df15a53386831dfaf4163c41bd4440cb2f0))
+* trim README to user essentials; add CONTRIBUTING and USAGE ([4497289](https://github.com/VadimOnix/kaiten-mcp-server/commit/4497289b24832dd033dcff8cccac416f72ec5848))
 
 # Changelog
 

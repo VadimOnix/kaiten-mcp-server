@@ -55,7 +55,7 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/node": "^24.7.0",
-    "conventional-changelog-conventionalcommits": "^10.2.1",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
     "semantic-release": "^25.0.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
