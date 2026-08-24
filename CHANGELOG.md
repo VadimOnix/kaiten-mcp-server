@@ -1,3 +1,9 @@
+## [3.6.3](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.2...v3.6.3) (2026-08-24)
+
+### Bug Fixes
+
+* **release:** restore release notes lost to a preset/writer mismatch ([4537f4c](https://github.com/VadimOnix/kaiten-mcp-server/commit/4537f4cf2ab5cb2877751a38ba86848eeaf95328))
+
 ## [3.6.2](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.1...v3.6.2) (2026-08-24)
 
 ### Bug Fixes
