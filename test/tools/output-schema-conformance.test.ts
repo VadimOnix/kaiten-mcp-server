@@ -52,6 +52,7 @@ const FIXTURES: Record<string, { args: Record<string, unknown>; client?: Record<
   kaiten_list_columns: { args: { board_id: 1 }, client: { getColumns: resolves([named('Col')]) } },
   kaiten_list_lanes: { args: { board_id: 1 }, client: { getLanes: resolves([named('Lane')]) } },
   kaiten_list_types: { args: { board_id: 1 }, client: { getTypes: resolves([named('Type')]) } },
+  kaiten_list_tags: { args: { query: 'x' }, client: { listTags: resolves([{ id: 1, name: 'x' }]) } },
   kaiten_get_current_user: { args: {}, client: { getCurrentUser: resolves(user) } },
   kaiten_list_users: { args: { query: 'u' }, client: { getUsers: resolves([user]) } },
 };

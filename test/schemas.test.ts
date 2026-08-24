@@ -4,6 +4,7 @@ import {
   CreateCardSchema,
   UpdateCardSchema,
   DeleteCardSchema,
+  ListTagsSchema,
   SearchCardsSchema,
   GetCardCommentsSchema,
   CreateCommentSchema,
@@ -135,6 +136,24 @@ describe('UpdateCardSchema', () => {
     const parsed = UpdateCardSchema.parse({ card_id: 5, size: 2.5, size_unit: 'h' });
     expect(parsed.size).toBe(2.5);
     expect(parsed.size_unit).toBe('h');
+  });
+});
+
+describe('ListTagsSchema', () => {
+  it('accepts a search term', () => {
+    expect(ListTagsSchema.parse({ query: 'token' }).query).toBe('token');
+  });
+
+  it('requires query — a bare GET /tags returns only the first 100 tags', () => {
+    expect(() => ListTagsSchema.parse({})).toThrow();
+  });
+
+  it('rejects an empty query', () => {
+    expect(() => ListTagsSchema.parse({ query: '' })).toThrow();
+  });
+
+  it('rejects extra keys', () => {
+    expect(() => ListTagsSchema.parse({ query: 'x', limit: 10 })).toThrow();
   });
 });
 

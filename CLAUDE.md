@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an MCP (Model Context Protocol) server for Kaiten API integration. It provides 28 tools for managing Kaiten cards, comments, tags, spaces, and boards directly from Claude Desktop. The server is production-ready with comprehensive logging, caching, retry logic, and concurrency control.
+This is an MCP (Model Context Protocol) server for Kaiten API integration. It provides 29 tools for managing Kaiten cards, comments, tags, spaces, and boards directly from Claude Desktop. The server is production-ready with comprehensive logging, caching, retry logic, and concurrency control.
 
 The toolset was deliberately trimmed from 26 to 16: the cache-invalidation tools, runtime diagnostics/log-level tools, redundant card listings (`get_space_cards`/`get_board_cards`, superseded by `search_cards`), and detail getters (`get_space`/`get_board`) were removed. Logging is now configured only via environment variables, and the cache relies on automatic TTL expiry. Pure response-shaping helpers live in `src/transformers.ts`; the test suite (Vitest) lives in `test/` and is run with `npm test`.
 
@@ -43,7 +43,7 @@ npm run inspector
 Unit tests live in `test/` and run on [Vitest](https://vitest.dev) via `npm test`.
 Required ENV vars are injected by `vitest.config.ts`, so no real `.env` is needed.
 
-Coverage targets the pure, deterministic layers that back the 28 tools:
+Coverage targets the pure, deterministic layers that back the 29 tools:
 - `test/schemas.test.ts` — Zod input validation for every tool
 - `test/transformers.test.ts` — `src/transformers.ts` response simplifiers
 - `test/utils.test.ts` — verbosity control + response truncation
@@ -77,7 +77,7 @@ Reference: src/config.ts:126-152 implements the `safeLog` wrapper.
 
 2. **src/server.ts** (`createServer()`)
    - Builds a high-level `McpServer` (SDK `server/mcp.js`) over stdio
-   - Registers the 28 tools via `registerTools()` (see `src/tools/registry.ts`);
+   - Registers the 29 tools via `registerTools()` (see `src/tools/registry.ts`);
      each tool's advertised JSON Schema is **derived from its Zod schema**
      (`def.schema.shape`) — there is NO hand-written `tools[]` JSON-Schema array
    - Attaches the MCP Resources (`kaiten-card:///`, `kaiten-space:///`,

@@ -4,6 +4,7 @@ import {
   KaitenUser,
   KaitenSpace,
   KaitenComment,
+  KaitenTag,
 } from './kaiten-client.js';
 
 // ============================================
@@ -174,4 +175,9 @@ export function simplifyCardCompact(card: KaitenCard) {
     asap: card.asap || false,
     blocked: !!card.blocked,
   };
+}
+
+/** Company tag reduced to the pair a caller routes on: id + name. */
+export function simplifyTag(tag: KaitenTag): { id?: number; name: string } {
+  return { id: tag.id, name: tag.name };
 }

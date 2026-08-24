@@ -26,6 +26,7 @@ import { listBoards } from './reference/list-boards.js';
 import { listColumns } from './reference/list-columns.js';
 import { listLanes } from './reference/list-lanes.js';
 import { listTypes } from './reference/list-types.js';
+import { listTags } from './reference/list-tags.js';
 import { getCurrentUser } from './users/get-current-user.js';
 import { listUsers } from './users/list-users.js';
 
@@ -56,6 +57,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   listColumns,
   listLanes,
   listTypes,
+  listTags,
   getCurrentUser,
   listUsers,
 ];

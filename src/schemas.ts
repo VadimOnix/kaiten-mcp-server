@@ -67,6 +67,10 @@ export const UpdateCardSchema = z.object({
   idempotency_key: IdempotencyKeySchema,
 }).strict();
 
+export const ListTagsSchema = z.object({
+  query: z.string().min(1).max(100).describe('Substring to search company tags by (required — a bare tag list is capped at 100 and ignores limit)'),
+}).strict();
+
 export const DeleteCardSchema = z.object({
   card_id: z.number().positive().int().describe('The ID of the card to delete'),
 }).strict();
@@ -274,6 +278,7 @@ export type ListBoardsArgs = z.infer<typeof ListBoardsSchema>;
 export type ListColumnsArgs = z.infer<typeof ListColumnsSchema>;
 export type ListLanesArgs = z.infer<typeof ListLanesSchema>;
 export type ListTypesArgs = z.infer<typeof ListTypesSchema>;
+export type ListTagsArgs = z.infer<typeof ListTagsSchema>;
 export type ListUsersArgs = z.infer<typeof ListUsersSchema>;
 export type GetCardMembersArgs = z.infer<typeof GetCardMembersSchema>;
 export type AddCardMembersArgs = z.infer<typeof AddCardMembersSchema>;

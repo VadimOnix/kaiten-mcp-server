@@ -243,6 +243,19 @@ describe('space / board discovery', () => {
     expect(urls).toContain(`${BASE}/boards/2/lanes`);
     expect(urls).toContain(`${BASE}/boards/2/card_types`);
   });
+
+  it('listTags GETs /tags with the search term as ?query', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ id: 76886, name: 'Token team' }]));
+    await client.listTags('token');
+    expect(call()[0]).toBe(`${BASE}/tags?query=token`);
+  });
+
+  it('listTags percent-encodes the search term', async () => {
+    // Company tags are frequently Cyrillic and contain spaces.
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
+    await client.listTags('Токен team');
+    expect(call()[0]).toBe(`${BASE}/tags?query=${encodeURIComponent('Токен team')}`);
+  });
 });
 
 describe('user operations', () => {

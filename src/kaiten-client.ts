@@ -631,6 +631,18 @@ export class KaitenClient {
     );
   }
 
+  /**
+   * Search the COMPANY tag directory (not a card's tags).
+   *
+   * `query` is mandatory by design: `GET /tags` without it returns only the
+   * first 100 tags and ignores `limit`, so in a company with more tags than
+   * that the one you want simply is not in the response.
+   */
+  async listTags(query: string, signal?: AbortSignal): Promise<KaitenTag[]> {
+    const path = `/tags?query=${encodeURIComponent(query)}`;
+    return this.queuedRequest(() => this.request<KaitenTag[]>(path, { signal }), signal);
+  }
+
   // Comment operations
   async getCardComments(cardId: number, signal?: AbortSignal): Promise<KaitenComment[]> {
     return this.queuedRequest(() => this.request<KaitenComment[]>(`/cards/${cardId}/comments`, { signal }), signal);

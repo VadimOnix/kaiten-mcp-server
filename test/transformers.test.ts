@@ -6,6 +6,7 @@ import {
   simplifyComment,
   simplifyCard,
   simplifyCardCompact,
+  simplifyTag,
   stripAvatars,
 } from '../src/transformers';
 import type { KaitenCard } from '../src/kaiten-client';
@@ -258,5 +259,19 @@ describe('simplifyCardCompact', () => {
       blocked: true,
     });
     expect(c).not.toHaveProperty('description');
+  });
+});
+
+describe('simplifyTag', () => {
+  it('keeps only id and name', () => {
+    expect(
+      simplifyTag({
+        id: 76886,
+        name: 'Token team',
+        color: 13,
+        created: '2026-08-20T06:34:31.864Z',
+        updated: '2026-08-20T06:34:31.864Z',
+      } as never),
+    ).toEqual({ id: 76886, name: 'Token team' });
   });
 });

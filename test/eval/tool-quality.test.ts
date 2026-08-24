@@ -119,10 +119,16 @@ describe('eval: advertised footprint budget', () => {
   // estimate is written as size_text and errors when the board rejects it. That
   // is ~+380 inputSchema chars for a param that stops a silent data loss (see
   // docs/size-and-tags-backlog.md); the descriptions themselves did not grow.
-  const WIRE_CEILING = 40_800;
-  const SCHEMA_TOTAL_CEILING = 15_800; // inputSchema only
+  //
+  // JUSTIFIED CEILING RAISE (2026-08-24): kaiten_list_tags added, taking the
+  // toolset 28 -> 29. It carries a one-field { query } input schema, the lean
+  // TagListOutput and a concise description — ~+700 wire chars. It closes the
+  // dead end where kaiten_search_cards could filter on tag_ids with no way to
+  // resolve a tag name to one.
+  const WIRE_CEILING = 41_800;
+  const SCHEMA_TOTAL_CEILING = 16_200; // inputSchema only
   const OUTPUT_SCHEMA_TOTAL_CEILING = 8_000;
-  const DESC_TOTAL_CEILING = 12_200;
+  const DESC_TOTAL_CEILING = 12_400;
   const INSTRUCTIONS_CEILING = 1_600;
   const PER_TOOL_CEILING = 3_600; // search_cards (heaviest) = desc+input+output
 
@@ -144,9 +150,9 @@ describe('eval: advertised footprint budget', () => {
     expect(fp.descTotal).toBeLessThanOrEqual(DESC_TOTAL_CEILING);
   });
 
-  it('keeps the advertised outputSchema footprint lean (all 28 tools, key fields only)', async () => {
+  it('keeps the advertised outputSchema footprint lean (all 29 tools, key fields only)', async () => {
     const fp = await measureFootprint();
-    expect(fp.toolsWithOutputSchema).toBe(28);
+    expect(fp.toolsWithOutputSchema).toBe(29);
     expect(fp.outputSchemaTotal).toBeLessThanOrEqual(OUTPUT_SCHEMA_TOTAL_CEILING);
   });
 

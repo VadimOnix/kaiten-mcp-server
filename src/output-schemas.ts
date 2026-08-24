@@ -50,6 +50,12 @@ const CommentItem = obj({
   author_name: z.string().optional(),
 });
 
+// Company tags key on `name` (not `title`), so they need their own item shape.
+const TagItem = obj({
+  id: z.number().optional(),
+  name: z.string().optional(),
+});
+
 // ---- single-object outputs ----
 export const CardOutput = CardItem;
 export const CommentOutput = CommentItem;
@@ -81,6 +87,8 @@ export const BatchOutput = obj({
 
 // Tag batch mutations report succeeded/failed by tag NAME (strings), so the
 // shape differs from the id-keyed BatchOutput above.
+export const TagListOutput = list(TagItem);
+
 export const TagBatchOutput = obj({
   card_id: z.number().optional(),
   succeeded: z.array(z.string()).optional(),
