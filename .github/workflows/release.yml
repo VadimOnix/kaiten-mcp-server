@@ -39,6 +39,11 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit production dependencies
+        # Blocks a release when something that actually ships is vulnerable.
+        # Dev-only advisories are excluded on purpose — see SECURITY.md.
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Semantic Release
         id: semantic
         uses: cycjimmy/semantic-release-action@v6

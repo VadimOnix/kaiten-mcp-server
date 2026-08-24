@@ -34,3 +34,10 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Audit production dependencies
+        # Only --omit=dev: these are the packages that actually ship to users.
+        # The dev tree carries advisories that CANNOT be fixed from this repo —
+        # see SECURITY.md — and gating on them would train everyone to ignore a
+        # red audit, hiding a real one when it appears.
+        run: npm audit --omit=dev --audit-level=high
