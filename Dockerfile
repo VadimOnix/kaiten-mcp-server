@@ -12,7 +12,17 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Build
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+# Pinned to BUILDPLATFORM so this stage ALWAYS runs natively on the builder's own
+# architecture, never under QEMU. `npm ci` here installs the full dev tree (~480
+# packages) and node under emulation dies on it:
+#   qemu: uncaught target signal 4 (Illegal instruction) - core dumped
+# BuildKit does not surface that as a failure, so the multi-arch build hangs
+# until the job's timeout (observed twice: 84 min and 5 h). The runtime stage's
+# smaller `npm ci --omit=dev` (~112 packages) survives emulation fine.
+# This stage only runs `tsc`, whose output is plain architecture-independent JS,
+# so building it once natively and copying dist/ into each per-arch runtime is
+# equivalent — and the only thing that has to be emulated is the small install.
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 
 WORKDIR /app
 
