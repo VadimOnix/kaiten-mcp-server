@@ -10,7 +10,7 @@
 
 ### Documentation
 
-* **changelog:** strip bogus issue references from the 3.6.4 entry ([d2a8a58](https://github.com/VadimOnix/kaiten-mcp-server/commit/d2a8a584db6fecb7fb7587db4710263fdd4ef3e2)), closes [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15) [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15)
+* **changelog:** strip bogus issue references from the 3.6.4 entry ([d2a8a58](https://github.com/VadimOnix/kaiten-mcp-server/commit/d2a8a584db6fecb7fb7587db4710263fdd4ef3e2))
 
 ## [3.6.4](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.3...v3.6.4) (2026-08-24)
 
@@ -44,7 +44,7 @@
 
 ### Bug Fixes
 
-* **deps:** bump hono to 4.12.29, regenerate lockfile ([87b328f](https://github.com/VadimOnix/kaiten-mcp-server/commit/87b328f839b8da024509e624cf2154467233f3ca)), closes [#3](https://github.com/VadimOnix/kaiten-mcp-server/issues/3)
+* **deps:** bump hono to 4.12.29, regenerate lockfile ([87b328f](https://github.com/VadimOnix/kaiten-mcp-server/commit/87b328f839b8da024509e624cf2154467233f3ca))
 
 ## [3.6.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.1...v3.6.0) (2026-07-10)
 

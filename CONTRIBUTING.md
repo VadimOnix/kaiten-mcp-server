@@ -223,3 +223,12 @@ KAITEN_LOG_METRICS=true
 - [docs/adr/](./docs/adr/) — Architecture Decision Records
 - [evaluations/README.md](./evaluations/README.md) — руководство по evaluation suite
 - [Kaiten API Docs](https://developers.kaiten.ru/) — официальная документация API
+
+### Ссылки на задачи в коммитах
+
+Не вставляйте в тело коммита вывод сборщиков и логов, где шаги нумеруются
+решёткой с числом. `conventional-changelog` разбирает такие токены как ссылки на
+issue, и в `CHANGELOG.md` с телом релиза попадает ложное `closes`. Так уже дважды
+проехало в релизы: цитата лога BuildKit со ссылками на шаги, а затем коммит,
+который эту же проблему чинил. Если нужно процитировать лог — уберите нумерацию
+шагов или вынесите цитату в описание PR.
