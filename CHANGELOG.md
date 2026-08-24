@@ -1,3 +1,17 @@
+## [3.7.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.4...v3.7.0) (2026-08-24)
+
+### Features
+
+* **tools:** add kaiten_list_tags to resolve tag names to ids ([a305ae3](https://github.com/VadimOnix/kaiten-mcp-server/commit/a305ae322e94b2df24249e583e09f3dbfb011548))
+
+### Bug Fixes
+
+* **deps:** bump nanoid to 3.3.18 via audit fix ([9448879](https://github.com/VadimOnix/kaiten-mcp-server/commit/9448879ab8607fbb63a5bfe6808064b90bb979e1))
+
+### Documentation
+
+* **changelog:** strip bogus issue references from the 3.6.4 entry ([d2a8a58](https://github.com/VadimOnix/kaiten-mcp-server/commit/d2a8a584db6fecb7fb7587db4710263fdd4ef3e2)), closes [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15) [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15)
+
 ## [3.6.4](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.3...v3.6.4) (2026-08-24)
 
 ### Bug Fixes
