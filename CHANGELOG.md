@@ -44,7 +44,7 @@
 
 ### Bug Fixes
 
-* **deps:** bump hono to 4.12.29, regenerate lockfile ([87b328f](https://github.com/VadimOnix/kaiten-mcp-server/commit/87b328f839b8da024509e624cf2154467233f3ca))
+* **deps:** bump hono to 4.12.29, regenerate lockfile ([87b328f](https://github.com/VadimOnix/kaiten-mcp-server/commit/87b328f839b8da024509e624cf2154467233f3ca)), closes [#3](https://github.com/VadimOnix/kaiten-mcp-server/issues/3)
 
 ## [3.6.0](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.5.1...v3.6.0) (2026-07-10)
 
