@@ -1,3 +1,9 @@
+## [3.6.4](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.3...v3.6.4) (2026-08-24)
+
+### Bug Fixes
+
+* **docker:** build natively instead of wedging QEMU on npm ci ([da22be2](https://github.com/VadimOnix/kaiten-mcp-server/commit/da22be2caa6c4bc3559f8b47ae28602455144f6b)), closes [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15) [#15](https://github.com/VadimOnix/kaiten-mcp-server/issues/15)
+
 ## [3.6.3](https://github.com/VadimOnix/kaiten-mcp-server/compare/v3.6.2...v3.6.3) (2026-08-24)
 
 ### Bug Fixes
